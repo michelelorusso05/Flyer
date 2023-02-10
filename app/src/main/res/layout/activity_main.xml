@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
+
+    <Button
+        android:id="@+id/uploadButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:background="?android:selectableItemBackgroundBorderless"
+        android:contentDescription="@string/action_send"
+        android:drawableTop="@drawable/outline_file_upload_24"
+        android:drawableTint="?attr/textColor"
+        android:foregroundGravity="center"
+        android:text="@string/action_send"
+        android:textColor="?attr/textColor"
+        tools:ignore="ButtonStyle" />
+
+    <Button
+        android:id="@+id/downloadButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:background="?android:selectableItemBackgroundBorderless"
+        android:contentDescription="@string/action_receive"
+        android:drawableTop="@drawable/outline_file_download_24"
+        android:drawableTint="?attr/textColor"
+        android:foregroundGravity="center"
+        android:text="@string/action_receive"
+        android:textColor="?attr/textColor"
+        tools:ignore="ButtonStyle" />
+
+</LinearLayout>

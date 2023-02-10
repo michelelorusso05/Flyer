@@ -1,0 +1,38 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.Flyer" parent="Theme.Material3.DayNight">
+        <item name="android:colorBackground">@color/white_blue</item>
+        <item name="android:colorControlHighlight">@color/skyer_blue</item>
+        <item name="colorPrimary">@color/dark_green</item>
+        <item name="colorOnPrimary">@color/white_blue</item>
+        <item name="colorOnPrimaryContainer">@color/white_blue</item>
+        <item name="colorSecondary">@color/dark_liver</item>
+        <item name="colorOnSecondary">@color/white_blue</item>
+        <item name="colorSurface">@color/white_blue</item>
+        <item name="colorOnSurface">@color/dark_green</item>
+        <item name="android:statusBarColor">@color/sky_blue</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
+        <item name="itemColor">#A8F3E8</item>
+        <item name="textColor">@color/dark_liver</item>
+
+
+        <item name="android:navigationBarColor">?android:attr/colorBackground</item>
+        <item name="android:windowContentTransitions">true</item>
+
+        <item name="toolbarStyle">@style/Theme.Flyer.Toolbar</item>
+
+        <item name="alertDialogTheme">@style/AppTheme.MyOldAlertDialog</item>
+    </style>
+
+    <style name="Theme.Flyer.Toolbar" parent="Widget.Material3.Toolbar">
+        <item name="android:background">@color/sky_blue</item>
+    </style>
+
+    <style name="AppTheme.MyOldAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="dialogCornerRadius">28dp</item>
+        <item name="cornerFamily">rounded</item>
+        <item name="android:colorBackground">?attr/colorSurface</item>
+        <item name="android:layout" tools:ignore="PrivateResource">@layout/m3_alert_dialog</item>
+    </style>
+</resources>

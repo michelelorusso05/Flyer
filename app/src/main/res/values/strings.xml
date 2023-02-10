@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Flyer</string>
+    <string name="action_send">Send</string>
+    <string name="action_receive">Receive</string>
+    <string name="send_file">Send a file</string>
+    <string name="notification_dialog_title">We got something to ask you…</string>
+    <string name="notification_dialog_desc">Flyer uses notifications to update you on your file transfer progress. If you choose to not receive notifications, you can still enable them later in your device\'s settings.</string>
+    <string name="upload_complete">Upload complete</string>
+    <string name="upload_label">This device is now visible to all devices connected to the same WiFi network as you.</string>
+    <string name="upload_destination_label">Received files will be stored in the Downloads folder.</string>
+    <string name="receive_file">Receive a file</string>
+    <string name="connection_upload_hint">Make sure the receiving device is connected to the same WiFi network as you.</string>
+    <string name="searching_label">Searching for devices…</string>
+    <plurals name="number_of_devices">
+        <item quantity="one">Found 1 device</item>
+        <item quantity="other">Found %d devices.</item>
+    </plurals>
+    <string name="multiple_connections_warning">You are connected to a WiFi network and have your hotspot enabled at the same time. &lt;b&gt;Flyer will search for devices in the external WiFi network.&lt;/b&gt;</string>
+
+</resources>

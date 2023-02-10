@@ -1,0 +1,46 @@
+<animated-vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:name="vector"
+            android:width="256dp"
+            android:height="256dp"
+            android:viewportWidth="500"
+            android:viewportHeight="500">
+            <path
+                android:name="path"
+                android:pathData="M 250 0 C 183.721 0 120.089 26.357 73.223 73.223 C 26.357 120.089 0 183.721 0 250 C 0 316.279 26.357 379.911 73.223 426.777 C 120.089 473.643 183.721 500 250 500 C 316.279 500 379.911 473.643 426.777 426.777 C 473.643 379.911 500 316.279 500 250 C 500 183.721 473.643 120.089 426.777 73.223 C 379.911 26.357 316.279 0 250 0 Z"
+                android:fillColor="?attr/itemColor"
+                android:strokeWidth="1"/>
+        </vector>
+    </aapt:attr>
+    <target android:name="path">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:propertyName="pathData"
+
+                    android:duration="2000"
+                    android:valueFrom="M 250 249 C 249.735 249 249.48 249.105 249.293 249.293 C 249.199 249.387 249.126 249.497 249.076 249.617 C 249.026 249.738 249 249.868 249 250 C 249 250.265 249.105 250.52 249.293 250.707 C 249.48 250.895 249.735 251 250 251 C 250.265 251 250.52 250.895 250.707 250.707 C 250.801 250.613 250.874 250.503 250.924 250.383 C 250.974 250.262 251 250.132 251 250 C 251 249.735 250.895 249.48 250.707 249.293 C 250.52 249.105 250.265 249 250 249 Z"
+                    android:valueTo="M 250 0 C 183.721 0 120.089 26.357 73.223 73.223 C 49.79 96.656 31.484 124.281 19.037 154.332 C 6.589 184.383 0 216.861 0 250 C 0 316.279 26.357 379.911 73.223 426.777 C 120.089 473.643 183.721 500 250 500 C 316.279 500 379.911 473.643 426.777 426.777 C 450.21 403.344 468.516 375.719 480.963 345.668 C 493.411 315.617 500 283.139 500 250 C 500 183.721 473.643 120.089 426.777 73.223 C 379.911 26.357 316.279 0 250 0 Z"
+                    android:valueType="pathType"
+                    android:interpolator="@android:anim/decelerate_interpolator"
+                    android:repeatMode="restart"
+                    android:repeatCount="infinite"
+                    />
+                <objectAnimator
+                    android:propertyName="fillAlpha"
+
+                    android:duration="2000"
+                    android:valueFrom="1"
+                    android:valueTo="0"
+                    android:valueType="floatType"
+                    android:interpolator="@android:anim/decelerate_interpolator"
+                    android:repeatMode="restart"
+                    android:repeatCount="infinite"
+                    />
+            </set>
+        </aapt:attr>
+    </target>
+</animated-vector>

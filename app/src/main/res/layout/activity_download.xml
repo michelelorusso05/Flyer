@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/linearLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center_horizontal"
+    tools:context=".DownloadActivity">
+
+    <ImageView
+        android:id="@+id/animation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@+id/connectionHint"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/avd_anim" />
+
+
+    <ImageView
+        android:id="@+id/deviceType"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:background="@drawable/circle"
+        android:padding="12dp"
+        app:layout_constraintBottom_toBottomOf="@+id/animation"
+        app:layout_constraintEnd_toEndOf="@+id/animation"
+        app:layout_constraintStart_toStartOf="@+id/animation"
+        app:layout_constraintTop_toTopOf="@+id/animation"
+        app:srcCompat="@drawable/outline_smartphone_24"
+        app:tint="?attr/textColor" />
+
+    <TextView
+        android:id="@+id/deviceName"
+        android:layout_width="96dp"
+        android:layout_height="36dp"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="2"
+        android:text="Telefono di Michele"
+        app:layout_constraintEnd_toEndOf="@+id/deviceType"
+        app:layout_constraintStart_toStartOf="@+id/deviceType"
+        app:layout_constraintTop_toBottomOf="@+id/deviceType" />
+
+    <TextView
+        android:id="@+id/connectionHint"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="16dp"
+        android:drawablePadding="8dp"
+        android:foregroundGravity="bottom"
+        android:text="@string/upload_label"
+        app:drawableStartCompat="@drawable/outline_wifi_24"
+        app:drawableTint="?attr/textColor"
+        app:layout_constraintBottom_toTopOf="@+id/folderHint"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/folderHint"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="16dp"
+        android:drawablePadding="8dp"
+        android:foregroundGravity="bottom"
+        android:text="@string/upload_destination_label"
+        app:drawableStartCompat="@drawable/outline_folder_open_24"
+        app:drawableTint="?attr/textColor"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

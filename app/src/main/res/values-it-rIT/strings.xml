@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Flyer</string>
+    <string name="action_send">Invia</string>
+    <string name="action_receive">Ricevi</string>
+    <string name="send_file">Invia un file</string>
+    <string name="notification_dialog_title">Abbiamo qualcosa da chiederti…</string>
+    <string name="notification_dialog_desc">Flyer usa le notifiche per aggiornarti sul progresso dei tuoi trasferimenti. Se decidi di non ricevere notifiche, puoi comunque attivarle in un secondo momento dalle impostazioni del tuo dispositivo.</string>
+    <string name="upload_complete">Inviato correttamente</string>
+    <string name="upload_label">Questo dispositivo è ora visibile a tutti i dispositivi connessi alla tua stessa rete WiFi.</string>
+    <string name="upload_destination_label">I file ricevuti saranno scaricati nella cartella Download.</string>
+    <string name="receive_file">Ricevi un file</string>
+    <string name="connection_upload_hint">Assicurati che il dispositivo ricevente sia connesso alla tua stessa rete WiFi.</string>
+    <string name="searching_label">Ricerca dispositivi in corso…</string>
+    <plurals name="number_of_devices">
+        <item quantity="one">%d dispositivo trovato</item>
+        <item quantity="other">%d dispositivi trovati</item>
+    </plurals>
+    <string name="multiple_connections_warning">Sei connesso ad una rete WiFi e hai l\'hotspot abilitato allo stesso tempo.&lt;b&gt; Flyer darà precedenza alla rete WiFi esterna.&lt;/b&gt;</string>
+</resources>

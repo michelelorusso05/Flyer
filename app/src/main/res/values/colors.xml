@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="dark_green">#FF293132</color>
+    <color name="dark_liver">#FF474044</color>
+    <color name="weird_gray">#FF4F5165</color>
+    <color name="sky_blue">#FF547AA5</color>
+    <color name="skyer_blue">#FF50D8D7</color>
+    <color name="white_blue">#FFF7FFFF</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="blacker_green">#FF1D1E1F</color>
+    <color name="whiter_green">#FFE6EBE1</color>
+
+    <attr name="itemColor" />
+    <attr name="textColor" />
+</resources>
