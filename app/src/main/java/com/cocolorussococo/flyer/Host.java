@@ -12,7 +12,9 @@ import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.Iterator;
 
 public class Host {
     final private InetAddress ip;
@@ -49,31 +51,29 @@ public class Host {
         Host host = (Host) obj;
         return this.ip.equals(host.getIp()) && this.port == host.getPort();
     }
-    public static Pair<InetAddress, Boolean> getBroadcastEx() throws SocketException {
-        InetAddress address = null;
-        boolean hasMultipleInterfaces = false;
-        for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
-            NetworkInterface networkInterface = en.nextElement();
-            if (networkInterface.isLoopback()) continue;
-            if (!networkInterface.isUp()) continue;
-            for (InterfaceAddress a : networkInterface.getInterfaceAddresses()) {
-                System.out.println(networkInterface.getName() + " " + networkInterface.isVirtual() + " " + a.getAddress());
-                if (a.getAddress().isSiteLocalAddress() && a.getBroadcast() != null) {
-                    if (address != null)
-                        hasMultipleInterfaces = true;
-                    else
-                        address = a.getBroadcast();
 
-                    // System.out.println(a.getAddress().getCanonicalHostName());
-                }
-            }
-        }
-        return new Pair<>(address, hasMultipleInterfaces);
-    }
-    public static InetAddress getBroadcast() throws SocketException {
-        return getBroadcastEx().first;
-    }
     public static String getHostname(Context context) {
         return Settings.Secure.getString(context.getContentResolver(), "bluetooth_name");
+    }
+    public static ArrayList<NetworkInterface> getActiveInterfaces() throws SocketException {
+        ArrayList<NetworkInterface> interfaces = new ArrayList<>();
+
+        for (Enumeration<NetworkInterface> it = NetworkInterface.getNetworkInterfaces(); it.hasMoreElements(); ) {
+            NetworkInterface networkInterface = it.nextElement();
+
+            boolean valid = false;
+            if (networkInterface.isLoopback() || !networkInterface.isUp()) continue;
+            for (InterfaceAddress addr : networkInterface.getInterfaceAddresses()) {
+                if (addr.getBroadcast() == null) continue;
+                if (addr.getAddress().isSiteLocalAddress()) valid = true;
+            }
+
+            if (valid) {
+                Log.d("MULTICAST", String.valueOf(networkInterface.supportsMulticast()));
+                interfaces.add(networkInterface);
+            }
+        }
+
+        return interfaces;
     }
 }

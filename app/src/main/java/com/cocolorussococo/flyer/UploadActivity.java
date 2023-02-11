@@ -1,7 +1,9 @@
 package com.cocolorussococo.flyer;
 
+import android.content.Context;
 import android.content.res.Configuration;
 import android.net.Uri;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
@@ -25,6 +27,9 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.MulticastSocket;
+import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.Arrays;
@@ -45,10 +50,16 @@ public class UploadActivity extends AppCompatActivity {
     TextView hotspotWarning;
     View pBar;
     ImageButton retryButton;
-    static DatagramSocket udpSocket;
+    static MulticastSocket udpSocket;
+    WifiManager.MulticastLock multicastLock;
     static Timer timer;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        multicastLock = wm.createMulticastLock("multicast");
+        multicastLock.setReferenceCounted(true);
+        multicastLock.acquire();
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_upload);
 
@@ -85,50 +96,42 @@ public class UploadActivity extends AppCompatActivity {
     private void listenUDP() {
         Log.d("UDP", "started");
         try {
+
             if (udpSocket != null && !udpSocket.isClosed()) {
                 udpSocket.close();
                 Thread.sleep(1000);
-                Log.d("AAAAAAAAA", String.valueOf(udpSocket.isClosed()));
             }
-            udpSocket = new DatagramSocket(10469);
-            udpSocket.setSoTimeout(0);
-            byte[] send = new byte[132];
-            send[1] = 104;
-            Pair<InetAddress, Boolean> addr = Host.getBroadcastEx();
-            runOnUiThread(() -> hotspotWarning.setVisibility(addr.second ? View.VISIBLE : View.GONE));
-            DatagramPacket packet = new DatagramPacket(send, send.length, Inet4Address.getByName("192.168.1.5"), 10468);
-            udpSocket.setBroadcast(true);
-            udpSocket.send(packet);
 
             if (timer != null) {
                 timer.cancel();
             }
+
+            udpSocket = new MulticastSocket(10468);
+            InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("239.255.255.250"), 10468);
+
+            for(NetworkInterface networkInterface : Host.getActiveInterfaces())
+                udpSocket.joinGroup(group, networkInterface);
+
             timer = new Timer();
             timer.schedule(new TimerTask() {
                 @Override
                 public void run() {
                     socketTimeout();
                 }
-            }, 2000);
+            }, 10000);
 
             DatagramPacket received = new DatagramPacket(new byte[132], 132);
 
             while (true) {
                 try {
                     udpSocket.receive(received);
-                    Log.d("Packet", Arrays.toString(received.getData()));
-                    if (received.getData()[1] == 104) {
-                        // Scarta il paccetto se viene da un client
-                        continue;
-                    }
+
                     byte[] data = received.getData();
                     String name = new String(data, 3, 128);
                     int port = Byte.toUnsignedInt(data[1]) + (Byte.toUnsignedInt(data[0]) << 8);
-                    Host host = new Host(packet.getAddress(), name, port, data[2]);
+                    Host host = new Host(received.getAddress(), name, port, data[2]);
                     if (!adapter.hasAlreadyBeenDiscovered(host)) {
-                        runOnUiThread(() -> {
-                            adapter.addDevice(host);
-                        });
+                        runOnUiThread(() -> adapter.addDevice(host));
                     }
                 } catch (SocketException e) {
                     Log.w("Socket destroyed", "Discovery was cancelled");
@@ -145,6 +148,7 @@ public class UploadActivity extends AppCompatActivity {
     }
 
     private void socketTimeout() {
+        // multicastLock.release();
         if (udpSocket != null)
             udpSocket.close();
         runOnUiThread(() -> {
