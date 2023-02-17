@@ -13,6 +13,7 @@ import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.text.HtmlCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -37,22 +38,31 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 public class UploadActivity extends AppCompatActivity {
-    ActivityResultLauncher<String> mGetContent = registerForActivityResult(new ActivityResultContracts.GetContent(),
-            uri -> {
-                if (uri == null) return;
-                new Thread(() -> connect(uri)).start();
-            });
-
-
     RecyclerView recyclerView;
     FoundDevicesAdapter adapter;
     TextView status;
     TextView hotspotWarning;
+    TextView selectedFile;
     View pBar;
     ImageButton retryButton;
     static MulticastSocket udpSocket;
     WifiManager.MulticastLock multicastLock;
     static Timer timer;
+    Uri selectedUri;
+    static boolean open = false;
+
+    ActivityResultLauncher<String> mGetContent = registerForActivityResult(new ActivityResultContracts.GetContent(),
+            uri -> {
+                open = false;
+                if (uri == null) {
+                    finish();
+                    return;
+                }
+                selectedUri = uri;
+                postOpenFile();
+                //new Thread(() -> connect(uri)).start();
+            });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
@@ -74,6 +84,7 @@ public class UploadActivity extends AppCompatActivity {
         retryButton = findViewById(R.id.retryButton);
         hotspotWarning = findViewById(R.id.hotspotWarning);
         hotspotWarning.setText(HtmlCompat.fromHtml(getString(R.string.multiple_connections_warning), HtmlCompat.FROM_HTML_MODE_LEGACY));
+        selectedFile = findViewById(R.id.selectedFile);
 
         searchForDevices();
         retryButton.setOnClickListener((View v) -> searchForDevices());
@@ -83,6 +94,23 @@ public class UploadActivity extends AppCompatActivity {
             searchForDevices();
             refreshLayout.setRefreshing(false);
         });
+
+        System.out.println(open);
+        if (open) return;
+
+        String uri = (savedInstanceState != null) ? savedInstanceState.getString("selectedUri") : null;
+        if (uri != null) {
+            selectedUri = Uri.parse(uri);
+            postOpenFile();
+        }
+        else
+            openFile();
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (selectedUri != null) outState.putString("selectedUri", selectedUri.toString());
     }
 
     private void searchForDevices() {
@@ -158,14 +186,22 @@ public class UploadActivity extends AppCompatActivity {
         });
     }
     private void openFile() {
+        open = true;
         mGetContent.launch("*/*");
     }
+    private void postOpenFile() {
+        selectedFile.setText(FileMappings.getFilenameFromURI(UploadActivity.this, selectedUri) + " "
+                + getContentResolver().getType(selectedUri));
+        selectedFile.setCompoundDrawablesRelativeWithIntrinsicBounds(FileMappings.getIconFromUri(UploadActivity.this, selectedUri), null, null, null);
+        adapter.setFileToSend(selectedUri);
+    }
 
-    private void connect(Uri toSend) {
-        WorkManager wm = WorkManager.getInstance(UploadActivity.this);
+    public static void connect(Context ctx, Uri toSend, InetAddress address, int port) {
+        WorkManager wm = WorkManager.getInstance(ctx);
 
         Data.Builder data = new Data.Builder();
-        // data.putString("targetHost", ipInput.getText().toString());
+        data.putString("targetHost", address.getHostAddress());
+        data.putInt("port", port);
         data.putString("file", toSend.toString());
 
         OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileUploadWorker.class)

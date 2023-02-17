@@ -21,11 +21,12 @@ import androidx.work.WorkerParameters;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.ConnectException;
 import java.net.Socket;
 
 public class FileUploadWorker extends Worker {
 
-    private static final int port = 10469;
+    private final int port;
     private final String target;
     private final Uri file;
     private final Context context;
@@ -37,6 +38,7 @@ public class FileUploadWorker extends Worker {
 
         Data data = workerParams.getInputData();
         target = data.getString("targetHost");
+        port = data.getInt("port", 0);
         file = Uri.parse(data.getString("file"));
         id = workerParams.getId().hashCode();
 
@@ -49,7 +51,7 @@ public class FileUploadWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        String filename = file.getPath().substring(file.getPath().lastIndexOf('/') + 1);
+        String filename = FileMappings.getFilenameFromURI(context, file);
 
         NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
 
@@ -82,7 +84,7 @@ public class FileUploadWorker extends Worker {
             // Write filename
             dataOutputStream.write(filenameStringBytes);
 
-            final long total = getSizeFromURI(context, file);
+            final long total = FileMappings.getSizeFromURI(context, file);
 
             // Write content size
             dataOutputStream.writeLong(total);
@@ -113,19 +115,17 @@ public class FileUploadWorker extends Worker {
             notificationManager.notify(id, builder.build());
 
             return Result.success();
+        } catch (ConnectException e) {
+            builder
+                    .setProgress(0, 0, false)
+                    .setOngoing(false)
+                    .setContentText(context.getText(R.string.send_refused) + " Porco Dio ihihija");
+
+            notificationManager.notify(id, builder.build());
         } catch (IOException e) {
             e.printStackTrace();
         }
 
         return Result.failure();
-    }
-
-    private static long getSizeFromURI(@NonNull Context context, Uri uri) {
-        Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
-        cursor.moveToFirst();
-        long size = cursor.getLong(cursor.getColumnIndexOrThrow(OpenableColumns.SIZE));
-        cursor.close();
-
-        return size;
     }
 }

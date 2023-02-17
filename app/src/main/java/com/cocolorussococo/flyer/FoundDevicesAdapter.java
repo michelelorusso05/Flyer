@@ -1,6 +1,7 @@
 package com.cocolorussococo.flyer;
 
 import android.content.Context;
+import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,6 +16,7 @@ import java.util.ArrayList;
 public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapter.ViewHolder> {
     private final ArrayList<Host> foundHosts;
     private final Context context;
+    private Uri fileToSend;
 
     private final static int[] DEVICE_TYPES = {
             R.drawable.outline_smartphone_24,
@@ -40,6 +42,10 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
         Host host = foundHosts.get(position);
         holder.deviceName.setText(host.getName());
         holder.deviceIcon.setImageResource(DEVICE_TYPES[host.getType()]);
+        holder.clickableLayout.setOnClickListener((v) -> {
+            if (fileToSend == null) throw new IllegalStateException("By the time the user will be able to click buttons, Uri should have already been set.");
+            UploadActivity.connect(context, fileToSend, foundHosts.get(position).getIp(), foundHosts.get(position).getPort());
+        });
     }
     @Override
     public int getItemCount() {
@@ -48,6 +54,9 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
     public void addDevice(Host found) {
         foundHosts.add(found);
         notifyItemInserted(foundHosts.size() - 1);
+    }
+    public void setFileToSend(Uri uri) {
+        fileToSend = uri;
     }
     public boolean hasAlreadyBeenDiscovered(Host host) {
         return foundHosts.contains(host);

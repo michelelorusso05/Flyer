@@ -15,14 +15,18 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
+import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DownloadActivity extends AppCompatActivity {
 
     ArrayList<MulticastSocket> sockets;
     Timer beaconTimer;
+    static ServerSocket socket;
+    static AtomicInteger currentPort = new AtomicInteger(0);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +47,7 @@ public class DownloadActivity extends AppCompatActivity {
         AnimatedVectorDrawable drawable = (AnimatedVectorDrawable) anim.getDrawable();
         drawable.start();
 
+        initSocket();
         startBeacon();
     }
 
@@ -57,6 +62,22 @@ public class DownloadActivity extends AppCompatActivity {
             }
         }
     }
+    private static void initSocket() {
+        if (socket != null) return;
+
+        try {
+            socket = new ServerSocket(0, 1);
+            currentPort.set(socket.getLocalPort());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    public static ServerSocket consumeSocket() {
+        ServerSocket s = socket;
+        socket = null;
+        initSocket();
+        return s;
+    }
 
     private void startBeacon() {
         // Create UDP station
@@ -66,16 +87,14 @@ public class DownloadActivity extends AppCompatActivity {
             for (NetworkInterface networkInterface : interfaces) {
                 MulticastSocket socket = new MulticastSocket();
                 socket.setNetworkInterface(networkInterface);
-                socket.setTimeToLive(255);
+                socket.setTimeToLive(1);
                 sockets.add(socket);
             }
 
             byte[] send = new byte[132];
             String hostname = Host.getHostname(DownloadActivity.this);
             // Send TCP port number
-            int portNo = 55555;
-            send[0] = (byte) ((portNo >>> 8) & 255);
-            send[1] = (byte) (portNo & 255);
+
             // Set device type (0 = Phone, 1 = Tablet)
             send[2] = (byte) (((getResources().getConfiguration().screenLayout
                                     & Configuration.SCREENLAYOUT_SIZE_MASK)
@@ -84,13 +103,18 @@ public class DownloadActivity extends AppCompatActivity {
             System.arraycopy(name, 0, send, 3, name.length);
 
             InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("239.255.255.250"), 10468);
-            DatagramPacket packet = new DatagramPacket(send, send.length, group);
 
             beaconTimer = new Timer();
             beaconTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
                     try {
+                        int portNum = currentPort.get();
+                        send[0] = (byte) ((portNum >>> 8) & 255);
+                        send[1] = (byte) (portNum & 255);
+
+                        DatagramPacket packet = new DatagramPacket(send, send.length, group);
+
                         for (MulticastSocket socket : sockets)
                             socket.send(packet);
                     } catch (IOException ignored) {}

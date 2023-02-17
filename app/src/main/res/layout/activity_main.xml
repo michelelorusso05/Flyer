@@ -6,6 +6,7 @@
     android:layout_height="match_parent"
     android:gravity="center"
     android:orientation="vertical"
+    android:padding="32dp"
     tools:context=".MainActivity">
 
     <Button
@@ -35,5 +36,6 @@
         android:text="@string/action_receive"
         android:textColor="?attr/textColor"
         tools:ignore="ButtonStyle" />
+
 
 </LinearLayout>
