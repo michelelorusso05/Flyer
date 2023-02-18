@@ -69,8 +69,6 @@ public class DownloadActivity extends AppCompatActivity {
         }
     }
     private void initSocket() {
-        if (socket != null) return;
-
         try {
             serverSocket = new ServerSocket(0, 1);
             currentPort.set(serverSocket.getLocalPort());

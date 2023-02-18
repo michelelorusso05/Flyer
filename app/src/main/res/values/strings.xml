@@ -19,5 +19,7 @@
     <string name="send_refused">The device can\'t receive any file at the moment.</string>
     <string name="storage_dialog_title">Allow for file saving</string>
     <string name="storage_dialog_desc">We need permission from you to save received files in your download folder (plis don\'t click don\'t ask again).</string>
+    <string name="download_complete">Download complete</string>
+    <string name="file_chooser_label">Open received file with...</string>
 
 </resources>

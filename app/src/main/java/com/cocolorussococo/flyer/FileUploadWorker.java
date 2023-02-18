@@ -64,7 +64,6 @@ public class FileUploadWorker extends Worker {
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .setProgress(100, 0, false);
-        //.addAction(R.drawable.ic_baseline_stop_24, context.getString(R.string.stopDownload), stopDownload);
 
         if (hasNotificationPermissions)
             notificationManager.notify(id, builder.build());
@@ -77,12 +76,16 @@ public class FileUploadWorker extends Worker {
             DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
             byte[] filenameStringBytes = filename.getBytes();
+            byte[] mimetypeStringBytes = context.getContentResolver().getType(file).getBytes();
 
             // Write filename size
             dataOutputStream.writeByte(filenameStringBytes.length);
-
             // Write filename
             dataOutputStream.write(filenameStringBytes);
+            // Write mimetype length
+            dataOutputStream.writeByte(mimetypeStringBytes.length);
+            // Write mimetype
+            dataOutputStream.write(mimetypeStringBytes);
 
             final long total = FileMappings.getSizeFromURI(context, file);
 
@@ -92,6 +95,9 @@ public class FileUploadWorker extends Worker {
             final int startSize = dataOutputStream.size();
 
             byte[] buffer = new byte[1024 * 1024];
+            int prevPercentage = 0;
+            long elapsedMillis = System.currentTimeMillis();
+
             while ((bytes = fileStream.read(buffer))
                     != -1) {
                 dataOutputStream.write(buffer, 0, bytes);
@@ -99,10 +105,18 @@ public class FileUploadWorker extends Worker {
 
                 final int progress = dataOutputStream.size() - startSize;
                 final int percentage = (int) ((float) progress * 100f / total);
+
+                // Do not issue a notification update if the percentage hasn't changed.
+                if (percentage == prevPercentage) continue;
+                // Do not issue a notification update if we are exceeding the rate limit (Android
+                // allows for 10 updates/sec, but we further reduce it down to 5 updates/sec).
+                if (System.currentTimeMillis() - elapsedMillis < 200) continue;
+                elapsedMillis = System.currentTimeMillis();
                 builder
                         .setContentText(percentage + "%")
                         .setProgress(100, percentage, false);
-                notificationManager.notify(id, builder.build());
+                if (hasNotificationPermissions)
+                    notificationManager.notify(id, builder.build());
             }
             fileStream.close();
             dataOutputStream.close();
@@ -112,7 +126,8 @@ public class FileUploadWorker extends Worker {
                     .setOngoing(false)
                     .setContentText(context.getText(R.string.upload_complete));
 
-            notificationManager.notify(id, builder.build());
+            if (hasNotificationPermissions)
+                notificationManager.notify(id, builder.build());
 
             return Result.success();
         } catch (ConnectException e) {

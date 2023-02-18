@@ -29,8 +29,16 @@ import java.io.OutputStream;
 
 public class MainActivity extends AppCompatActivity {
 
-    ActivityResultLauncher<String> requestNotificationPermissionLauncher;
-    ActivityResultLauncher<String> requestStoragePermissionLauncher;
+    ActivityResultLauncher<String> requestNotificationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                SharedPreferences.Editor e = this.getSharedPreferences("com.cocolorussococo.flyer", Context.MODE_PRIVATE).edit();
+                e.putBoolean("refusedNotifications", !isGranted);
+                e.apply();
+            });
+    ActivityResultLauncher<String> requestStoragePermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) startActivity(new Intent(this, DownloadActivity.class));
+            });
 
 
     private void createNotificationChannel() {
@@ -45,18 +53,7 @@ public class MainActivity extends AppCompatActivity {
             // or other notification behaviors after this
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
-            // notificationManager.cancelAll();
         }
-        requestNotificationPermissionLauncher =
-                registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
-                    SharedPreferences.Editor e = this.getSharedPreferences("com.cocolorussococo.flyer", Context.MODE_PRIVATE).edit();
-                    e.putBoolean("refusedNotifications", !isGranted);
-                    e.apply();
-                });
-        requestStoragePermissionLauncher =
-                registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
-                    if (isGranted) writeToFile();
-                });
     }
 
     @Override
@@ -71,8 +68,18 @@ public class MainActivity extends AppCompatActivity {
 
         Button download = findViewById(R.id.downloadButton);
         download.setOnClickListener((v) -> {
-            // startActivity(new Intent(this, DownloadActivity.class));
-            writeToFile();
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                if (!(ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)) {
+                    new MaterialAlertDialogBuilder(this)
+                            .setIcon(R.drawable.outline_folder_open_24)
+                            .setTitle(R.string.storage_dialog_title)
+                            .setMessage(R.string.storage_dialog_desc)
+                            .setPositiveButton(android.R.string.ok, (dialog, which) -> requestStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE))
+                            .show();
+                    return;
+                }
+            }
+            startActivity(new Intent(this, DownloadActivity.class));
         });
 
         createNotificationChannel();

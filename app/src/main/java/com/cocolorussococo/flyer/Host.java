@@ -2,6 +2,7 @@ package com.cocolorussococo.flyer;
 
 import android.content.Context;
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.provider.Settings;
 import android.util.Log;
 import android.util.Pair;
@@ -19,7 +20,7 @@ import java.util.Iterator;
 public class Host {
     final private InetAddress ip;
     final private String name;
-    final private int port;
+    private int port;
     final private int type;
 
     public Host(InetAddress ip, String name, int port, int type) {
@@ -44,16 +45,21 @@ public class Host {
     public int getType() {
         return type;
     }
+    public void updatePort(int newPort) {
+        port = newPort;
+    }
 
     @Override
     public boolean equals(Object obj) {
         if (obj.getClass() != Host.class) return false;
         Host host = (Host) obj;
-        return this.ip.equals(host.getIp()) && this.port == host.getPort();
+        return this.ip.equals(host.getIp());
     }
 
     public static String getHostname(Context context) {
-        return Settings.Secure.getString(context.getContentResolver(), "bluetooth_name");
+        return (Build.VERSION.SDK_INT < Build.VERSION_CODES.N_MR1) ?
+            Settings.Secure.getString(context.getContentResolver(), "bluetooth_name") :
+            Settings.Global.getString(context.getContentResolver(), Settings.Global.DEVICE_NAME);
     }
     public static ArrayList<NetworkInterface> getActiveInterfaces() throws SocketException {
         ArrayList<NetworkInterface> interfaces = new ArrayList<>();

@@ -52,8 +52,15 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
         return foundHosts.size();
     }
     public void addDevice(Host found) {
-        foundHosts.add(found);
-        notifyItemInserted(foundHosts.size() - 1);
+        int index = foundHosts.indexOf(found);
+        // New host
+        if (index == -1) {
+            foundHosts.add(found);
+            notifyItemInserted(foundHosts.size() - 1);
+        }
+        else {
+            foundHosts.get(index).updatePort(found.getPort());
+        }
     }
     public void setFileToSend(Uri uri) {
         fileToSend = uri;

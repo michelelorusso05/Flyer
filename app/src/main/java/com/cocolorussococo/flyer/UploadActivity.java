@@ -1,9 +1,12 @@
 package com.cocolorussococo.flyer;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
@@ -15,6 +18,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.core.text.HtmlCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -72,6 +76,11 @@ public class UploadActivity extends AppCompatActivity {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_upload);
+
+        // Check permission failsafe
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                !(ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED))
+            finish();
 
         recyclerView = findViewById(R.id.foundDevices);
         adapter = new FoundDevicesAdapter(this);
@@ -158,9 +167,8 @@ public class UploadActivity extends AppCompatActivity {
                     String name = new String(data, 3, 128);
                     int port = Byte.toUnsignedInt(data[1]) + (Byte.toUnsignedInt(data[0]) << 8);
                     Host host = new Host(received.getAddress(), name, port, data[2]);
-                    if (!adapter.hasAlreadyBeenDiscovered(host)) {
-                        runOnUiThread(() -> adapter.addDevice(host));
-                    }
+                    runOnUiThread(() -> adapter.addDevice(host));
+
                 } catch (SocketException e) {
                     Log.w("Socket destroyed", "Discovery was cancelled");
                     break;
