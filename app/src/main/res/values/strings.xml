@@ -17,5 +17,7 @@
     </plurals>
     <string name="multiple_connections_warning">You are connected to a WiFi network and have your hotspot enabled at the same time. &lt;b&gt;Flyer will search for devices in the external WiFi network.&lt;/b&gt;</string>
     <string name="send_refused">The device can\'t receive any file at the moment.</string>
+    <string name="storage_dialog_title">Allow for file saving</string>
+    <string name="storage_dialog_desc">We need permission from you to save received files in your download folder (plis don\'t click don\'t ask again).</string>
 
 </resources>

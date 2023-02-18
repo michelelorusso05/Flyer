@@ -8,7 +8,7 @@
         <item name="android:colorBackground">@color/blacker_green</item>
         <item name="android:colorControlHighlight">@color/dark_liver</item>
 
-        <item name="colorPrimary">@color/weird_gray</item>
+        <item name="colorPrimary">@color/skyer_blue</item>
         <item name="colorOnPrimary">@color/white_blue</item>
         <item name="colorOnPrimaryContainer">@color/white_blue</item>
         <item name="colorSecondary">@color/whiter_green</item>

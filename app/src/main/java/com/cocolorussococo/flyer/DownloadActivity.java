@@ -8,6 +8,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.work.Data;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -16,6 +20,7 @@ import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -25,7 +30,8 @@ public class DownloadActivity extends AppCompatActivity {
 
     ArrayList<MulticastSocket> sockets;
     Timer beaconTimer;
-    static ServerSocket socket;
+    ServerSocket serverSocket;
+    static Socket socket;
     static AtomicInteger currentPort = new AtomicInteger(0);
 
     @Override
@@ -62,21 +68,38 @@ public class DownloadActivity extends AppCompatActivity {
             }
         }
     }
-    private static void initSocket() {
+    private void initSocket() {
         if (socket != null) return;
 
         try {
-            socket = new ServerSocket(0, 1);
-            currentPort.set(socket.getLocalPort());
+            serverSocket = new ServerSocket(0, 1);
+            currentPort.set(serverSocket.getLocalPort());
+
+            new Thread(() -> {
+                try {
+                    socket = serverSocket.accept();
+                    onConnectionReceived();
+                } catch (IOException ignored) {}
+            }).start();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    public static ServerSocket consumeSocket() {
-        ServerSocket s = socket;
+    public static Socket consumeSocket() {
+        Socket s = socket;
         socket = null;
-        initSocket();
         return s;
+    }
+    private void onConnectionReceived() {
+        initSocket();
+
+        WorkManager wm = WorkManager.getInstance(DownloadActivity.this);
+
+        OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileDownloadWorker.class)
+                .addTag(String.valueOf(currentPort.get()))
+                .build();
+
+        wm.enqueueUniqueWork(String.valueOf(currentPort.get()), ExistingWorkPolicy.KEEP, downloadWorkRequest);
     }
 
     private void startBeacon() {

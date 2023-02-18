@@ -8,20 +8,29 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.widget.Button;
-import android.widget.ImageButton;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+
 public class MainActivity extends AppCompatActivity {
 
-    ActivityResultLauncher<String> requestPermissionLauncher;
+    ActivityResultLauncher<String> requestNotificationPermissionLauncher;
+    ActivityResultLauncher<String> requestStoragePermissionLauncher;
 
 
     private void createNotificationChannel() {
@@ -38,11 +47,15 @@ public class MainActivity extends AppCompatActivity {
             notificationManager.createNotificationChannel(channel);
             // notificationManager.cancelAll();
         }
-        requestPermissionLauncher =
+        requestNotificationPermissionLauncher =
                 registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                     SharedPreferences.Editor e = this.getSharedPreferences("com.cocolorussococo.flyer", Context.MODE_PRIVATE).edit();
                     e.putBoolean("refusedNotifications", !isGranted);
                     e.apply();
+                });
+        requestStoragePermissionLauncher =
+                registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                    if (isGranted) writeToFile();
                 });
     }
 
@@ -58,7 +71,8 @@ public class MainActivity extends AppCompatActivity {
 
         Button download = findViewById(R.id.downloadButton);
         download.setOnClickListener((v) -> {
-            startActivity(new Intent(this, DownloadActivity.class));
+            // startActivity(new Intent(this, DownloadActivity.class));
+            writeToFile();
         });
 
         createNotificationChannel();
@@ -75,9 +89,47 @@ public class MainActivity extends AppCompatActivity {
                         .setIcon(R.drawable.outline_notifications_24)
                         .setTitle(R.string.notification_dialog_title)
                         .setMessage(R.string.notification_dialog_desc)
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS))
+                        .setPositiveButton(android.R.string.ok, (dialog, which) -> requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS))
                         .show();
             }
+        }
+    }
+
+    private void writeToFile() {
+        try {
+            OutputStream outputFile;
+            // Android 9 and below
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                if (!(ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)) {
+                    new MaterialAlertDialogBuilder(this)
+                            .setIcon(R.drawable.outline_folder_open_24)
+                            .setTitle(R.string.storage_dialog_title)
+                            .setMessage(R.string.storage_dialog_desc)
+                            .setPositiveButton(android.R.string.ok, (dialog, which) -> requestStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE))
+                            .show();
+                    return;
+                }
+                String s = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString();
+                File f = new File(s, "Ciao.txt");
+                outputFile = new FileOutputStream(f);
+            }
+            // Android 10 and above
+            else {
+                final ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, "Ciao.txt");
+                values.put(MediaStore.MediaColumns.MIME_TYPE, "text/plain");
+
+                final Uri contentUri = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
+                Uri uri = getContentResolver().insert(contentUri, values);
+
+                outputFile = getContentResolver().openOutputStream(uri);
+            }
+
+            outputFile.write("Ciao".getBytes());
+
+            outputFile.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }

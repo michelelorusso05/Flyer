@@ -18,4 +18,6 @@
     </plurals>
     <string name="multiple_connections_warning">Sei connesso ad una rete WiFi e hai l\'hotspot abilitato allo stesso tempo.&lt;b&gt; Flyer darà precedenza alla rete WiFi esterna.&lt;/b&gt;</string>
     <string name="send_refused">Il dispositivo non può ricevere file al momento.</string>
+    <string name="storage_dialog_title">Permetti il salvataggio dei file</string>
+    <string name="storage_dialog_desc">Abbiamo bisogno del tuo permesso per salvare i file ricevuti nella cartella Download (perfavore non cliccare non chiedermelo più).</string>
 </resources>

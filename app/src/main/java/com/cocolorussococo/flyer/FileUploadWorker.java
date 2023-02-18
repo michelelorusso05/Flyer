@@ -119,7 +119,7 @@ public class FileUploadWorker extends Worker {
             builder
                     .setProgress(0, 0, false)
                     .setOngoing(false)
-                    .setContentText(context.getText(R.string.send_refused) + " Porco Dio ihihija");
+                    .setContentText(context.getText(R.string.send_refused));
 
             notificationManager.notify(id, builder.build());
         } catch (IOException e) {
