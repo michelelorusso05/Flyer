@@ -43,7 +43,7 @@ public class FileUploadWorker extends Worker {
         id = workerParams.getId().hashCode();
 
         this.context = context;
-        hasNotificationPermissions = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) &&
+        hasNotificationPermissions = (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) ||
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
     }
 

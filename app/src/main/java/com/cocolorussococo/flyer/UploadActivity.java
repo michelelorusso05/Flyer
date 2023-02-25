@@ -49,7 +49,7 @@ public class UploadActivity extends AppCompatActivity {
     TextView selectedFile;
     View pBar;
     ImageButton retryButton;
-    static MulticastSocket udpSocket;
+    MulticastSocket udpSocket;
     WifiManager.MulticastLock multicastLock;
     static Timer timer;
     Uri selectedUri;
@@ -64,7 +64,8 @@ public class UploadActivity extends AppCompatActivity {
                 }
                 selectedUri = uri;
                 postOpenFile();
-                //new Thread(() -> connect(uri)).start();
+
+                searchForDevices();
             });
 
     @Override
@@ -95,7 +96,7 @@ public class UploadActivity extends AppCompatActivity {
         hotspotWarning.setText(HtmlCompat.fromHtml(getString(R.string.multiple_connections_warning), HtmlCompat.FROM_HTML_MODE_LEGACY));
         selectedFile = findViewById(R.id.selectedFile);
 
-        searchForDevices();
+        //searchForDevices();
         retryButton.setOnClickListener((View v) -> searchForDevices());
 
         SwipeRefreshLayout refreshLayout = findViewById(R.id.swipeRefresh);
@@ -104,7 +105,6 @@ public class UploadActivity extends AppCompatActivity {
             refreshLayout.setRefreshing(false);
         });
 
-        System.out.println(open);
         if (open) return;
 
         String uri = (savedInstanceState != null) ? savedInstanceState.getString("selectedUri") : null;
@@ -114,6 +114,20 @@ public class UploadActivity extends AppCompatActivity {
         }
         else
             openFile();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (udpSocket != null)
+            udpSocket.close();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        new Thread(this::searchForDevices).start();
     }
 
     @Override
@@ -148,14 +162,6 @@ public class UploadActivity extends AppCompatActivity {
 
             for(NetworkInterface networkInterface : Host.getActiveInterfaces())
                 udpSocket.joinGroup(group, networkInterface);
-
-            timer = new Timer();
-            timer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    socketTimeout();
-                }
-            }, 10000);
 
             DatagramPacket received = new DatagramPacket(new byte[132], 132);
 

@@ -75,7 +75,6 @@ public class Host {
             }
 
             if (valid) {
-                Log.d("MULTICAST", String.valueOf(networkInterface.supportsMulticast()));
                 interfaces.add(networkInterface);
             }
         }

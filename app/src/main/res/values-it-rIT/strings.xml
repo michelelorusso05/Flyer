@@ -22,4 +22,5 @@
     <string name="storage_dialog_desc">Abbiamo bisogno del tuo permesso per salvare i file ricevuti nella cartella Download (perfavore non cliccare non chiedermelo più).</string>
     <string name="download_complete">Ricevuto correttamente</string>
     <string name="file_chooser_label">Apri il file ricevuto con...</string>
+    <string name="shared_fail">Si è verificato un\'errore.</string>
 </resources>

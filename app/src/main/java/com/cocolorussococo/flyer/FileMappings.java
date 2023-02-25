@@ -22,6 +22,7 @@ public class FileMappings {
         mappings.put("image/*", R.drawable.outline_image_24);
         mappings.put("video/*", R.drawable.outline_video_file_24);
         mappings.put("text/*", R.drawable.outline_text_snippet_24);
+        mappings.put("model/*", R.drawable.outline_model);
         mappings.put("application/pdf", R.drawable.outline_pdf_24);
 
         // Defaults
@@ -29,16 +30,61 @@ public class FileMappings {
 
         // Executables
         mappings.put("application/x-msdos-program", R.drawable.outline_applications_24);
-        mappings.put("application/vnd.android.package-archive", R.drawable.outline_applications_24);
+        mappings.put("application/vnd.android.package-archive", R.drawable.outline_android_24);
+
 
         // Compressed archive
-        mappings.put("application/x-bzip", R.drawable.outline_folder_zip_24);
-        mappings.put("application/x-bzip2", R.drawable.outline_folder_zip_24);
-        mappings.put("application/gzip", R.drawable.outline_folder_zip_24);
-        mappings.put("application/vnd.rar", R.drawable.outline_folder_zip_24);
-        mappings.put("application/x-tar", R.drawable.outline_folder_zip_24);
-        mappings.put("application/zip", R.drawable.outline_folder_zip_24);
-        mappings.put("application/x-7z-compressed", R.drawable.outline_folder_zip_24);
+        putAll(new String[]{
+                "application/x-bzip",
+                "application/x-bzip2",
+                "application/gzip",
+                "application/vnd.rar",
+                "application/x-tar",
+                "application/zip",
+                "application/x-7z-compressed"
+        }, R.drawable.outline_folder_zip_24);
+
+        // Word files
+        putAll(new String[]{
+                "application/msword",
+                "application/vnd.ms-word.document.macroenabled.12",
+                "application/vnd.ms-word.template.macroenabled.12",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.template"
+        }, R.drawable.outline_word);
+
+        // Powerpoint files
+        putAll(new String[]{
+                "application/powerpoint",
+                "application/mspowerpoint",
+                "application/vnd.ms-powerpoint",
+                "application/vnd.ms-powerpoint.presentation.macroenabled.12",
+                "application/vnd.ms-powerpoint.slideshow.macroenabled.12",
+                "application/vnd.ms-powerpoint.template.macroenabled.12",
+                "application/vnd.ms-powerpoint.addin.macroenabled.12",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                "application/vnd.openxmlformats-officedocument.presentationml.slideshow"
+        }, R.drawable.outline_powerpoint);
+
+        // Excel files
+        putAll(new String[]{
+                "application/excel",
+                "application/x-excel",
+                "application/x-msexcel",
+                "application/vnd.ms-excel",
+                "application/vnd.ms-excel.sheet.macroenabled.12",
+                "application/vnd.ms-excel.sheet.binary.macroenabled.12",
+                "application/vnd.ms-excel.template.macroenabled.12",
+                "application/vnd.ms-excel.addin.macroenabled.12",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
+                "image/vnd.xiff"
+        }, R.drawable.outline_excel);
+    }
+    private static void putAll(String[] types, int icon) {
+        assert mappings != null;
+        for (String type : types)
+            mappings.put(type, icon);
     }
     public static Drawable getIconFromUri(Context context, Uri uri) {
         String mime = context.getContentResolver().getType(uri);

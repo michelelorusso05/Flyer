@@ -59,6 +59,7 @@ public class FileDownloadWorker extends Worker {
                 .setProgress(100, 0, false);
 
         try (Socket socket = DownloadActivity.consumeSocket();) {
+            socket.setSoTimeout(5000);
             socket.setReceiveBufferSize(1024 * 1024);
             DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
@@ -75,6 +76,9 @@ public class FileDownloadWorker extends Worker {
             String filename = new String(filenameBuffer);
             String mimeType = new String(mimetypeBuffer);
 
+            System.out.println(filenameLength + " " + filename);
+            System.out.println(mimetypeLength + " " + mimeType);
+
             builder.setContentTitle(filename);
             if (hasNotificationPermissions) {
                 notificationManager.notify(id, builder.build());
@@ -87,6 +91,8 @@ public class FileDownloadWorker extends Worker {
 
             long size = dataInputStream.readLong();
             long total = size;
+
+            System.out.println(size);
 
             byte[] buffer = new byte[1024 * 1024];
             int prevPercentage = 0;
@@ -140,6 +146,17 @@ public class FileDownloadWorker extends Worker {
             }
 
         } catch (IOException e) {
+            builder
+                    .setOngoing(false)
+                    .setProgress(0,0, false)
+                    .setContentText(ctx.getText(R.string.shared_fail));
+
+            if (hasNotificationPermissions) {
+                // Cancel the last notification, to force the next (final) one to be showed.
+                notificationManager.cancel(id);
+                notificationManager.notify(id, builder.build());
+            }
+
             e.printStackTrace();
             return Result.failure();
         }

@@ -8,7 +8,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
@@ -58,8 +57,10 @@ public class DownloadActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
+    protected void onStop() {
+        super.onStop();
+        if (isChangingConfigurations()) return;
+
         if (beaconTimer != null) beaconTimer.cancel();
         // Dispose of the socket
         if (sockets != null) {
@@ -67,16 +68,31 @@ public class DownloadActivity extends AppCompatActivity {
                 socket.close();
             }
         }
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        startBeacon();
+        initSocket();
+    }
+
     private void initSocket() {
         try {
-            serverSocket = new ServerSocket(0, 1);
+            serverSocket = new ServerSocket(0);
             currentPort.set(serverSocket.getLocalPort());
 
             new Thread(() -> {
                 try {
-                    socket = serverSocket.accept();
-                    onConnectionReceived();
+                    while (true) {
+                        socket = serverSocket.accept();
+                        onConnectionReceived();
+                    }
                 } catch (IOException ignored) {}
             }).start();
         } catch (IOException e) {
@@ -89,7 +105,7 @@ public class DownloadActivity extends AppCompatActivity {
         return s;
     }
     private void onConnectionReceived() {
-        initSocket();
+        // initSocket();
 
         WorkManager wm = WorkManager.getInstance(DownloadActivity.this);
 
