@@ -25,6 +25,6 @@
     <string name="shared_fail">Si è verificato un\'errore.</string>
     <string name="power_optimization_warning">Permetti a Flyer di funzionare a schermo spento</string>
     <string name="power_optimization_title">Disattiva ottimizzazioni batteria</string>
-    <string name="power_optimization_desc">Quando lo schermo viene spento, Android limita in automatico le applicazioni per risparmiare batteria. In questo modo però, qualsiasi operazione in corso viene annullata.\n\nPuoi prevenire che ciò accada andando nelle impostazioni, cambiando da \"Senza ottimizzazione\" a \"Tutte le app\" e deselezionando Flyer nella lista delle app.</string>
+    <string name="power_optimization_desc">Quando lo schermo viene spento, Android interrompe in automatico le applicazioni in esecuzione per risparmiare batteria. Tuttavia, questa ottimizzazione termina in modo prematuro i trasferimenti.\n\nPuoi prevenire che ciò accada andando nelle impostazioni, passando da \"Senza ottimizzazione\" a \"Tutte le app\" e deselezionando Flyer nella lista delle app.</string>
     <string name="take_me_to_settings">Vai ad impostazioni</string>
 </resources>
