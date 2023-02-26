@@ -50,6 +50,7 @@
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="16dp"
+        android:visibility="gone"
         app:cardBackgroundColor="#3FFFFF00"
         app:cardCornerRadius="16dp"
         app:cardElevation="0dp">
@@ -62,8 +63,7 @@
             android:clickable="true"
             android:focusable="true"
             android:orientation="horizontal"
-            android:padding="16dp"
-            android:visibility="gone">
+            android:padding="16dp">
 
             <TextView
                 android:layout_width="fill_parent"
