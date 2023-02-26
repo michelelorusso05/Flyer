@@ -4,14 +4,17 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.PendingIntent;
+import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
@@ -27,6 +30,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Collection;
+import java.util.Collections;
 
 public class FileDownloadWorker extends Worker {
     final Context ctx;
@@ -42,6 +47,7 @@ public class FileDownloadWorker extends Worker {
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     @SuppressLint("MissingPermission")
     @NonNull
     @Override
@@ -58,12 +64,12 @@ public class FileDownloadWorker extends Worker {
                 .setCategory(Notification.CATEGORY_PROGRESS)
                 .setProgress(100, 0, false);
 
-        try (Socket socket = DownloadActivity.consumeSocket();) {
+        try (Socket socket = DownloadActivity.consumeSocket()) {
             socket.setSoTimeout(5000);
             socket.setReceiveBufferSize(1024 * 1024);
             DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
-            int bytes = 0;
+            int bytes;
 
             int filenameLength = dataInputStream.readByte();
             byte[] filenameBuffer = new byte[filenameLength];
@@ -76,9 +82,6 @@ public class FileDownloadWorker extends Worker {
             String filename = new String(filenameBuffer);
             String mimeType = new String(mimetypeBuffer);
 
-            System.out.println(filenameLength + " " + filename);
-            System.out.println(mimetypeLength + " " + mimeType);
-
             builder.setContentTitle(filename);
             if (hasNotificationPermissions) {
                 notificationManager.notify(id, builder.build());
@@ -87,7 +90,6 @@ public class FileDownloadWorker extends Worker {
             Pair<OutputStream, Uri> pair = openOutputStreamForDownloadedFile(ctx, filename, mimeType);
             if (pair.first == null) throw new RuntimeException("Something went wrong when opening output file.");
             OutputStream fileOutputStream = pair.first;
-
 
             long size = dataInputStream.readLong();
             long total = size;
@@ -182,10 +184,23 @@ public class FileDownloadWorker extends Worker {
                 values.put(MediaStore.MediaColumns.MIME_TYPE, mimetype);
 
                 final Uri contentUri = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
-                uri = ctx.getContentResolver().insert(contentUri, values);
 
+                Cursor c = ctx.getContentResolver().query(
+                        contentUri,
+                        new String[] { MediaStore.Downloads._ID },
+                        MediaStore.Downloads.DISPLAY_NAME + " LIKE ?",
+                        new String[]{ filename },
+                        null
+                );
+
+                if (c != null) {
+                    Log.w("Duplicate file", "File exists");
+                    c.close();
+                }
+
+                uri = ctx.getContentResolver().insert(contentUri, values);
                 outputFile = ctx.getContentResolver().openOutputStream(uri);
-            };
+            }
 
             return new Pair<>(outputFile, uri);
         } catch (IOException e) {

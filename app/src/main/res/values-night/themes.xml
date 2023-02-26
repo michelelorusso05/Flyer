@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
     <style name="Theme.Flyer.Toolbar" parent="Widget.Material3.Toolbar">
         <item name="android:background">@color/blacker_green</item>
     </style>
 
     <style name="Theme.Flyer" parent="Theme.Material3.DayNight">
         <item name="android:colorBackground">@color/blacker_green</item>
-        <item name="android:colorControlHighlight">@color/dark_liver</item>
 
         <item name="colorPrimary">@color/skyer_blue</item>
         <item name="colorOnPrimary">@color/white_blue</item>

@@ -105,15 +105,13 @@ public class DownloadActivity extends AppCompatActivity {
         return s;
     }
     private void onConnectionReceived() {
-        // initSocket();
-
         WorkManager wm = WorkManager.getInstance(DownloadActivity.this);
 
         OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileDownloadWorker.class)
                 .addTag(String.valueOf(currentPort.get()))
                 .build();
 
-        wm.enqueueUniqueWork(String.valueOf(currentPort.get()), ExistingWorkPolicy.KEEP, downloadWorkRequest);
+        wm.enqueue(downloadWorkRequest);
     }
 
     private void startBeacon() {

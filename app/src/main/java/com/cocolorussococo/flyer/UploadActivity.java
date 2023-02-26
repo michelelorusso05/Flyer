@@ -9,7 +9,6 @@ import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.util.Pair;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -29,17 +28,11 @@ import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
 import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.util.Arrays;
-import java.util.Timer;
-import java.util.TimerTask;
 
 public class UploadActivity extends AppCompatActivity {
     RecyclerView recyclerView;
@@ -51,7 +44,6 @@ public class UploadActivity extends AppCompatActivity {
     ImageButton retryButton;
     MulticastSocket udpSocket;
     WifiManager.MulticastLock multicastLock;
-    static Timer timer;
     Uri selectedUri;
     static boolean open = false;
 
@@ -64,8 +56,6 @@ public class UploadActivity extends AppCompatActivity {
                 }
                 selectedUri = uri;
                 postOpenFile();
-
-                searchForDevices();
             });
 
     @Override
@@ -97,11 +87,11 @@ public class UploadActivity extends AppCompatActivity {
         selectedFile = findViewById(R.id.selectedFile);
 
         //searchForDevices();
-        retryButton.setOnClickListener((View v) -> searchForDevices());
+        //retryButton.setOnClickListener((View v) -> searchForDevices());
 
         SwipeRefreshLayout refreshLayout = findViewById(R.id.swipeRefresh);
         refreshLayout.setOnRefreshListener(() -> {
-            searchForDevices();
+            //searchForDevices();
             refreshLayout.setRefreshing(false);
         });
 
@@ -119,7 +109,7 @@ public class UploadActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (udpSocket != null)
+        if (udpSocket != null && !isChangingConfigurations())
             udpSocket.close();
     }
 
@@ -127,7 +117,8 @@ public class UploadActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
-        new Thread(this::searchForDevices).start();
+        if (selectedUri == null || udpSocket != null) return;
+        searchForDevices();
     }
 
     @Override
@@ -153,14 +144,10 @@ public class UploadActivity extends AppCompatActivity {
                 Thread.sleep(1000);
             }
 
-            if (timer != null) {
-                timer.cancel();
-            }
-
             udpSocket = new MulticastSocket(10468);
             InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("239.255.255.250"), 10468);
 
-            for(NetworkInterface networkInterface : Host.getActiveInterfaces())
+            for (NetworkInterface networkInterface : Host.getActiveInterfaces())
                 udpSocket.joinGroup(group, networkInterface);
 
             DatagramPacket received = new DatagramPacket(new byte[132], 132);
@@ -204,8 +191,10 @@ public class UploadActivity extends AppCompatActivity {
         mGetContent.launch("*/*");
     }
     private void postOpenFile() {
-        selectedFile.setText(FileMappings.getFilenameFromURI(UploadActivity.this, selectedUri) + " "
-                + getContentResolver().getType(selectedUri));
+        searchForDevices();
+
+        selectedFile.setText(FileMappings.getFilenameFromURI(UploadActivity.this, selectedUri)
+                /*+ " " + getContentResolver().getType(selectedUri)*/);
         selectedFile.setCompoundDrawablesRelativeWithIntrinsicBounds(FileMappings.getIconFromUri(UploadActivity.this, selectedUri), null, null, null);
         adapter.setFileToSend(selectedUri);
     }
@@ -218,11 +207,13 @@ public class UploadActivity extends AppCompatActivity {
         data.putInt("port", port);
         data.putString("file", toSend.toString());
 
+        String uniqueWorkID = toSend.toString().concat(address.toString());
+
         OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileUploadWorker.class)
-                .addTag(toSend.toString())
+                .addTag(uniqueWorkID)
                 .setInputData(data.build())
                 .build();
 
-        wm.enqueueUniqueWork(toSend.toString(), ExistingWorkPolicy.KEEP, downloadWorkRequest);
+        wm.enqueueUniqueWork(uniqueWorkID, ExistingWorkPolicy.KEEP, downloadWorkRequest);
     }
 }

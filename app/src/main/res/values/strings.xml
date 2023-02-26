@@ -20,7 +20,11 @@
     <string name="storage_dialog_title">Allow for file saving</string>
     <string name="storage_dialog_desc">We need permission from you to save received files in your download folder (plis don\'t click don\'t ask again).</string>
     <string name="download_complete">Download complete</string>
-    <string name="file_chooser_label">Open received file with...</string>
+    <string name="file_chooser_label">Open received file with…</string>
     <string name="shared_fail">An error has occourred.</string>
+    <string name="power_optimization_warning">Allow Flyer to work when screen is turned off</string>
+    <string name="power_optimization_title">Disable doze mode optimizations</string>
+    <string name="power_optimization_desc">Android automatically limits app functionality when the screen is turned off in order to save battery.\nHowever, this will stop any operation in progress.\n\nYou can override this behaviour by going into Settings and whitelisting Flyer in the list of apps.</string>
+    <string name="take_me_to_settings">Take me to settings</string>
 
 </resources>

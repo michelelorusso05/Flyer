@@ -2,7 +2,6 @@
     <!-- Base application theme. -->
     <style name="Theme.Flyer" parent="Theme.Material3.DayNight">
         <item name="android:colorBackground">@color/white_blue</item>
-        <item name="android:colorControlHighlight">@color/skyer_blue</item>
         <item name="colorPrimary">@color/dark_green</item>
         <item name="colorOnPrimary">@color/white_blue</item>
         <item name="colorOnPrimaryContainer">@color/white_blue</item>

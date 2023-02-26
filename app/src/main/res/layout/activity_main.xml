@@ -2,40 +2,81 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/linearLayout2"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:gravity="center"
     android:orientation="vertical"
-    android:padding="32dp"
     tools:context=".MainActivity">
 
-    <Button
-        android:id="@+id/uploadButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:background="?android:selectableItemBackgroundBorderless"
-        android:contentDescription="@string/action_send"
-        android:drawableTop="@drawable/outline_file_upload_24"
-        android:drawableTint="?attr/textColor"
-        android:foregroundGravity="center"
-        android:text="@string/action_send"
-        android:textColor="?attr/textColor"
-        tools:ignore="ButtonStyle" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical">
 
-    <Button
-        android:id="@+id/downloadButton"
-        android:layout_width="wrap_content"
+        <Button
+            android:id="@+id/uploadButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="?android:selectableItemBackgroundBorderless"
+            android:contentDescription="@string/action_send"
+            android:drawableTop="@drawable/outline_file_upload_24"
+            android:drawableTint="?attr/textColor"
+            android:text="@string/action_send"
+            android:textColor="?attr/textColor"
+            tools:ignore="ButtonStyle" />
+
+        <Button
+            android:id="@+id/downloadButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="?android:selectableItemBackgroundBorderless"
+            android:contentDescription="@string/action_receive"
+            android:drawableTop="@drawable/outline_file_download_24"
+            android:drawableTint="?attr/textColor"
+            android:text="@string/action_receive"
+            android:textColor="?attr/textColor"
+            tools:ignore="ButtonStyle" />
+    </LinearLayout>
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/dozeModeWarning"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:background="?android:selectableItemBackgroundBorderless"
-        android:contentDescription="@string/action_receive"
-        android:drawableTop="@drawable/outline_file_download_24"
-        android:drawableTint="?attr/textColor"
-        android:foregroundGravity="center"
-        android:text="@string/action_receive"
-        android:textColor="?attr/textColor"
-        tools:ignore="ButtonStyle" />
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardBackgroundColor="#3FFFFF00"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp">
+
+        <LinearLayout
+            android:id="@+id/dozeWarningClickableLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:drawablePadding="8dp"
+                android:text="@string/power_optimization_warning"
+                android:textSize="16sp"
+                app:drawableEndCompat="@drawable/round_right_24"
+                app:drawableStartCompat="@drawable/round_warning_24" />
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
 
 
 </LinearLayout>

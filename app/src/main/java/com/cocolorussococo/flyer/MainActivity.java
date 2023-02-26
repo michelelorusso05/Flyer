@@ -17,7 +17,10 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.PowerManager;
 import android.provider.MediaStore;
+import android.provider.Settings;
+import android.view.View;
 import android.widget.Button;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -62,9 +65,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         Button upload = findViewById(R.id.uploadButton);
-        upload.setOnClickListener((v) -> {
-            startActivity(new Intent(this, UploadActivity.class));
-        });
+        upload.setOnClickListener((v) -> startActivity(new Intent(this, UploadActivity.class)));
 
         Button download = findViewById(R.id.downloadButton);
         download.setOnClickListener((v) -> {
@@ -80,6 +81,21 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             startActivity(new Intent(this, DownloadActivity.class));
+        });
+
+        findViewById(R.id.dozeWarningClickableLayout).setOnClickListener((v) -> {
+            // Direct mode, violates Google Play Policies
+            // startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            //      Uri.parse("package:com.cocolorussococo.flyer")));
+
+            new MaterialAlertDialogBuilder(this)
+                    //.setIcon(R.drawable.outline_notifications_24)
+                    .setTitle(R.string.power_optimization_title)
+                    .setMessage(R.string.power_optimization_desc)
+                    .setPositiveButton(R.string.take_me_to_settings, (dialog, which) ->
+                            startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)))
+                    .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
+                    .show();
         });
 
         createNotificationChannel();
@@ -102,41 +118,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void writeToFile() {
-        try {
-            OutputStream outputFile;
-            // Android 9 and below
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                if (!(ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)) {
-                    new MaterialAlertDialogBuilder(this)
-                            .setIcon(R.drawable.outline_folder_open_24)
-                            .setTitle(R.string.storage_dialog_title)
-                            .setMessage(R.string.storage_dialog_desc)
-                            .setPositiveButton(android.R.string.ok, (dialog, which) -> requestStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE))
-                            .show();
-                    return;
-                }
-                String s = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString();
-                File f = new File(s, "Ciao.txt");
-                outputFile = new FileOutputStream(f);
-            }
-            // Android 10 and above
-            else {
-                final ContentValues values = new ContentValues();
-                values.put(MediaStore.MediaColumns.DISPLAY_NAME, "Ciao.txt");
-                values.put(MediaStore.MediaColumns.MIME_TYPE, "text/plain");
-
-                final Uri contentUri = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
-                Uri uri = getContentResolver().insert(contentUri, values);
-
-                outputFile = getContentResolver().openOutputStream(uri);
-            }
-
-            outputFile.write("Ciao".getBytes());
-
-            outputFile.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        boolean allowInDozeMode = getSystemService(PowerManager.class)
+                .isIgnoringBatteryOptimizations("com.cocolorussococo.flyer");
+        findViewById(R.id.dozeModeWarning).setVisibility(allowInDozeMode ? View.GONE : View.VISIBLE);
     }
 }

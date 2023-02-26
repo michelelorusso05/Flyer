@@ -72,6 +72,7 @@ public class FileUploadWorker extends Worker {
             InputStream fileStream = context.getContentResolver().openInputStream(file);
 
             int bytes;
+            socket.setSoTimeout(5000);
             socket.setSendBufferSize(1024 * 1024);
             DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
@@ -138,6 +139,10 @@ public class FileUploadWorker extends Worker {
 
             notificationManager.notify(id, builder.build());
         } catch (IOException e) {
+            builder
+                    .setProgress(0, 0, false)
+                    .setOngoing(false)
+                    .setContentText(context.getText(R.string.shared_fail));
             e.printStackTrace();
         }
 
