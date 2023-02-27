@@ -15,6 +15,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.work.Data;
+import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
@@ -51,6 +52,7 @@ public class FileUploadWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
+
         String filename = FileMappings.getFilenameFromURI(context, file);
 
         NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
@@ -67,6 +69,8 @@ public class FileUploadWorker extends Worker {
 
         if (hasNotificationPermissions)
             notificationManager.notify(id, builder.build());
+
+        setForegroundAsync(new ForegroundInfo(id, builder.build()));
 
         try (Socket socket = new Socket(target, port)) {
             InputStream fileStream = context.getContentResolver().openInputStream(file);

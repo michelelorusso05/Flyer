@@ -2,6 +2,7 @@ package com.cocolorussococo.flyer;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.net.Uri;
@@ -12,6 +13,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -25,14 +27,21 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkManager;
 
+import com.google.android.material.snackbar.Snackbar;
+
+import java.io.File;
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.InterfaceAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.util.ArrayList;
 
 public class UploadActivity extends AppCompatActivity {
     RecyclerView recyclerView;
@@ -97,6 +106,20 @@ public class UploadActivity extends AppCompatActivity {
 
         if (open) return;
 
+
+        Uri shareIntentUri = getIntent().getParcelableExtra(Intent.EXTRA_STREAM);
+        if (getIntent().getStringExtra(Intent.EXTRA_TEXT) != null && shareIntentUri == null) {
+            Toast.makeText(this, "Flyer non permette l'invio di testo semplice al momento.", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        if (shareIntentUri != null && selectedUri == null) {
+            selectedUri = shareIntentUri;
+            postOpenFile();
+            return;
+        }
+
         String uri = (savedInstanceState != null) ? savedInstanceState.getString("selectedUri") : null;
         if (uri != null) {
             selectedUri = Uri.parse(uri);
@@ -109,8 +132,18 @@ public class UploadActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (udpSocket != null && !isChangingConfigurations())
+
+        if (udpSocket != null && !isChangingConfigurations()) {
+            try {
+                InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("239.255.255.250"), 10468);
+
+                for (NetworkInterface networkInterface : Host.getActiveInterfaces())
+                    udpSocket.leaveGroup(group, networkInterface);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             udpSocket.close();
+        }
     }
 
     @Override
@@ -147,7 +180,8 @@ public class UploadActivity extends AppCompatActivity {
             udpSocket = new MulticastSocket(10468);
             InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("239.255.255.250"), 10468);
 
-            for (NetworkInterface networkInterface : Host.getActiveInterfaces())
+            final ArrayList<NetworkInterface> interfaces = Host.getActiveInterfaces();
+            for (NetworkInterface networkInterface : interfaces)
                 udpSocket.joinGroup(group, networkInterface);
 
             DatagramPacket received = new DatagramPacket(new byte[132], 132);
@@ -212,6 +246,7 @@ public class UploadActivity extends AppCompatActivity {
         OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileUploadWorker.class)
                 .addTag(uniqueWorkID)
                 .setInputData(data.build())
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build();
 
         wm.enqueueUniqueWork(uniqueWorkID, ExistingWorkPolicy.KEEP, downloadWorkRequest);

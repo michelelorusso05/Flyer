@@ -26,15 +26,21 @@
             android:parentActivityName=".MainActivity" />
         <activity
             android:name=".UploadActivity"
-            android:exported="false"
+            android:exported="true"
             android:label="@string/send_file"
-            android:parentActivityName=".MainActivity" />
+            android:parentActivityName=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

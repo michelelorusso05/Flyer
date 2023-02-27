@@ -21,6 +21,7 @@ import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
@@ -63,6 +64,8 @@ public class FileDownloadWorker extends Worker {
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_PROGRESS)
                 .setProgress(100, 0, false);
+
+        setForegroundAsync(new ForegroundInfo(id, builder.build()));
 
         try (Socket socket = DownloadActivity.consumeSocket()) {
             socket.setSoTimeout(5000);

@@ -4,12 +4,16 @@ package com.cocolorussococo.flyer;
 import android.content.res.Configuration;
 import android.graphics.drawable.AnimatedVectorDrawable;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModel;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkManager;
 
 import java.io.IOException;
@@ -28,8 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DownloadActivity extends AppCompatActivity {
 
     ArrayList<MulticastSocket> sockets;
-    Timer beaconTimer;
-    ServerSocket serverSocket;
+    static Timer beaconTimer;
+    static ServerSocket serverSocket;
     static Socket socket;
     static AtomicInteger currentPort = new AtomicInteger(0);
 
@@ -52,14 +56,17 @@ public class DownloadActivity extends AppCompatActivity {
         AnimatedVectorDrawable drawable = (AnimatedVectorDrawable) anim.getDrawable();
         drawable.start();
 
-        initSocket();
-        startBeacon();
+        if (serverSocket == null) {
+            startBeacon();
+            initSocket();
+        }
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         if (isChangingConfigurations()) return;
+        Log.d("Socket", "Shutting down");
 
         if (beaconTimer != null) beaconTimer.cancel();
         // Dispose of the socket
@@ -84,7 +91,17 @@ public class DownloadActivity extends AppCompatActivity {
 
     private void initSocket() {
         try {
-            serverSocket = new ServerSocket(0);
+            int p = currentPort.get();
+            if (p != 0) {
+                try {
+                    serverSocket = new ServerSocket(p);
+                } catch (IOException e) {
+                    Log.d("Socket recreation", "Port previously bounded is no longer available, getting new port...");
+                    serverSocket = new ServerSocket(0);
+                }
+            }
+            else
+                serverSocket = new ServerSocket(0);
             currentPort.set(serverSocket.getLocalPort());
 
             new Thread(() -> {
@@ -109,12 +126,14 @@ public class DownloadActivity extends AppCompatActivity {
 
         OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileDownloadWorker.class)
                 .addTag(String.valueOf(currentPort.get()))
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build();
 
         wm.enqueue(downloadWorkRequest);
     }
 
     private void startBeacon() {
+        Log.d("Socket", "Started");
         // Create UDP station
         try {
             ArrayList<NetworkInterface> interfaces = Host.getActiveInterfaces();
@@ -144,6 +163,7 @@ public class DownloadActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     try {
+                        Log.d("Bingo", "Bingo");
                         int portNum = currentPort.get();
                         send[0] = (byte) ((portNum >>> 8) & 255);
                         send[1] = (byte) (portNum & 255);
@@ -152,7 +172,9 @@ public class DownloadActivity extends AppCompatActivity {
 
                         for (MulticastSocket socket : sockets)
                             socket.send(packet);
-                    } catch (IOException ignored) {}
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
             }, 0, 2000);
 
