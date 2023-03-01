@@ -11,6 +11,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModel;
+import androidx.work.Constraints;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.OutOfQuotaPolicy;
@@ -56,7 +57,7 @@ public class DownloadActivity extends AppCompatActivity {
         AnimatedVectorDrawable drawable = (AnimatedVectorDrawable) anim.getDrawable();
         drawable.start();
 
-        if (serverSocket == null) {
+        if (serverSocket == null || serverSocket.isClosed()) {
             startBeacon();
             initSocket();
         }
@@ -77,6 +78,7 @@ public class DownloadActivity extends AppCompatActivity {
         }
         try {
             serverSocket.close();
+            serverSocket = null;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -126,12 +128,11 @@ public class DownloadActivity extends AppCompatActivity {
 
         OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileDownloadWorker.class)
                 .addTag(String.valueOf(currentPort.get()))
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                //.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build();
 
         wm.enqueue(downloadWorkRequest);
     }
-
     private void startBeacon() {
         Log.d("Socket", "Started");
         // Create UDP station

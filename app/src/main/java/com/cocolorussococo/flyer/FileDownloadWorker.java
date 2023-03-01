@@ -18,12 +18,16 @@ import android.util.Log;
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
+import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
+import androidx.work.impl.utils.futures.SettableFuture;
+
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.DataInputStream;
 import java.io.File;
@@ -38,6 +42,7 @@ public class FileDownloadWorker extends Worker {
     final Context ctx;
     final boolean hasNotificationPermissions;
     final int id;
+    final NotificationCompat.Builder builder;
 
     public FileDownloadWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -46,17 +51,9 @@ public class FileDownloadWorker extends Worker {
         id = workerParams.getId().hashCode();
         hasNotificationPermissions = (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) ||
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
-    }
-
-    @SuppressWarnings("ResultOfMethodCallIgnored")
-    @SuppressLint("MissingPermission")
-    @NonNull
-    @Override
-    public Result doWork() {
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(ctx);
 
         // Create notification
-        final NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, String.valueOf(42069))
+        builder = new NotificationCompat.Builder(ctx, String.valueOf(42069))
                 .setSilent(true)
                 .setSmallIcon(R.drawable.outline_file_download_24)
                 .setContentText("0%")
@@ -66,9 +63,17 @@ public class FileDownloadWorker extends Worker {
                 .setProgress(100, 0, false);
 
         setForegroundAsync(new ForegroundInfo(id, builder.build()));
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @SuppressLint("MissingPermission")
+    @NonNull
+    @Override
+    public Result doWork() {
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(ctx);
 
         try (Socket socket = DownloadActivity.consumeSocket()) {
-            socket.setSoTimeout(5000);
+            //socket.setSoTimeout(5000);
             socket.setReceiveBufferSize(1024 * 1024);
             DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
@@ -86,9 +91,7 @@ public class FileDownloadWorker extends Worker {
             String mimeType = new String(mimetypeBuffer);
 
             builder.setContentTitle(filename);
-            if (hasNotificationPermissions) {
-                notificationManager.notify(id, builder.build());
-            }
+            setForegroundAsync(new ForegroundInfo(id, builder.build()));
 
             Pair<OutputStream, Uri> pair = openOutputStreamForDownloadedFile(ctx, filename, mimeType);
             if (pair.first == null) throw new RuntimeException("Something went wrong when opening output file.");
@@ -114,6 +117,7 @@ public class FileDownloadWorker extends Worker {
                 final int percentage = (int) ((float) progress * 100f / total);
                 // Do not issue a notification update if the percentage hasn't changed.
                 if (percentage == prevPercentage) continue;
+                prevPercentage = percentage;
                 // Do not issue a notification update if we are exceeding the rate limit (Android
                 // allows for 10 updates/sec, but we further reduce it down to 5 updates/sec).
                 if (System.currentTimeMillis() - elapsedMillis < 200) continue;
@@ -121,9 +125,8 @@ public class FileDownloadWorker extends Worker {
                 builder
                         .setContentText(percentage + "%")
                         .setProgress(100, percentage, false);
-                if (hasNotificationPermissions) {
-                    notificationManager.notify(id, builder.build());
-                }
+
+                setForegroundAsync(new ForegroundInfo(id, builder.build()));
             }
 
             dataInputStream.close();
@@ -144,25 +147,15 @@ public class FileDownloadWorker extends Worker {
                     .setAutoCancel(true)
                     .setContentIntent(pendingIntent);
 
-            if (hasNotificationPermissions) {
-                // Cancel the last notification, to force the next (final) one to be showed.
-                notificationManager.cancel(id);
-                notificationManager.notify(id, builder.build());
-            }
-
+            setForegroundAsync(new ForegroundInfo(id, builder.build()));
         } catch (IOException e) {
+            e.printStackTrace();
             builder
                     .setOngoing(false)
                     .setProgress(0,0, false)
                     .setContentText(ctx.getText(R.string.shared_fail));
 
-            if (hasNotificationPermissions) {
-                // Cancel the last notification, to force the next (final) one to be showed.
-                notificationManager.cancel(id);
-                notificationManager.notify(id, builder.build());
-            }
-
-            e.printStackTrace();
+            setForegroundAsync(new ForegroundInfo(id, builder.build()));
             return Result.failure();
         }
         return Result.success();
