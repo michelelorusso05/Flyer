@@ -39,12 +39,13 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        Host host = foundHosts.get(position);
+        final int pos = holder.getAdapterPosition();
+        Host host = foundHosts.get(pos);
         holder.deviceName.setText(host.getName());
-        holder.deviceIcon.setImageResource(DEVICE_TYPES[host.getType()]);
+        holder.deviceIcon.setImageResource(DEVICE_TYPES[host.getDeviceType().ordinal()]);
         holder.clickableLayout.setOnClickListener((v) -> {
             if (fileToSend == null) throw new IllegalStateException("By the time the user will be able to click buttons, Uri should have already been set.");
-            UploadActivity.connect(context, fileToSend, foundHosts.get(position).getIp(), foundHosts.get(position).getPort());
+            UploadActivity.connect(context, fileToSend, foundHosts.get(pos).getIp(), foundHosts.get(pos).getPort());
         });
     }
     @Override
@@ -61,6 +62,13 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
         else {
             foundHosts.get(index).updatePort(found.getPort());
         }
+    }
+    public void forgetDevice(Host toForget) {
+        int index = foundHosts.indexOf(toForget);
+        if (index == -1) return;
+
+        foundHosts.remove(index);
+        notifyItemRemoved(index);
     }
     public void setFileToSend(Uri uri) {
         fileToSend = uri;

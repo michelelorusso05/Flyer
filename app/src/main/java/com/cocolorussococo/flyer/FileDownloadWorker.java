@@ -4,11 +4,11 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.PendingIntent;
-import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -18,7 +18,6 @@ import android.util.Log;
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
-import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -35,15 +34,36 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.util.Collection;
-import java.util.Collections;
 
 public class FileDownloadWorker extends Worker {
     final Context ctx;
     final boolean hasNotificationPermissions;
     final int id;
     final NotificationCompat.Builder builder;
+    final NotificationManagerCompat notificationManager;
+    boolean hasExceededQuota;
+    ListenableFuture<Void> l;
+    final long startTime;
 
+    @SuppressLint("MissingPermission")
+    private void sendNotification() {
+        builder.setWhen(startTime);
+
+        if ((hasExceededQuota || (l != null && !l.isDone())) && hasNotificationPermissions)
+            notificationManager.notify(id, builder.build());
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                l = setForegroundAsync(new ForegroundInfo(id, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE));
+            }
+            else {
+                l = setForegroundAsync(new ForegroundInfo(id, builder.build()));
+            }
+        } catch (IllegalStateException e) {
+            hasExceededQuota = true;
+        }
+    }
+
+    @SuppressLint("RestrictedApi")
     public FileDownloadWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
         ctx = context;
@@ -52,17 +72,21 @@ public class FileDownloadWorker extends Worker {
         hasNotificationPermissions = (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) ||
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
 
+        notificationManager = NotificationManagerCompat.from(ctx);
+
         // Create notification
         builder = new NotificationCompat.Builder(ctx, String.valueOf(42069))
                 .setSilent(true)
                 .setSmallIcon(R.drawable.outline_file_download_24)
+                .setShowWhen(true)
                 .setContentText("0%")
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_PROGRESS)
                 .setProgress(100, 0, false);
 
-        setForegroundAsync(new ForegroundInfo(id, builder.build()));
+        startTime = builder.getWhenIfShowing();
+        sendNotification();
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
@@ -70,10 +94,8 @@ public class FileDownloadWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(ctx);
-
         try (Socket socket = DownloadActivity.consumeSocket()) {
-            //socket.setSoTimeout(5000);
+            socket.setSoTimeout(5000);
             socket.setReceiveBufferSize(1024 * 1024);
             DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
@@ -91,7 +113,7 @@ public class FileDownloadWorker extends Worker {
             String mimeType = new String(mimetypeBuffer);
 
             builder.setContentTitle(filename);
-            setForegroundAsync(new ForegroundInfo(id, builder.build()));
+            sendNotification();
 
             Pair<OutputStream, Uri> pair = openOutputStreamForDownloadedFile(ctx, filename, mimeType);
             if (pair.first == null) throw new RuntimeException("Something went wrong when opening output file.");
@@ -118,15 +140,17 @@ public class FileDownloadWorker extends Worker {
                 // Do not issue a notification update if the percentage hasn't changed.
                 if (percentage == prevPercentage) continue;
                 prevPercentage = percentage;
+
                 // Do not issue a notification update if we are exceeding the rate limit (Android
                 // allows for 10 updates/sec, but we further reduce it down to 5 updates/sec).
                 if (System.currentTimeMillis() - elapsedMillis < 200) continue;
                 elapsedMillis = System.currentTimeMillis();
+
                 builder
                         .setContentText(percentage + "%")
                         .setProgress(100, percentage, false);
 
-                setForegroundAsync(new ForegroundInfo(id, builder.build()));
+                sendNotification();
             }
 
             dataInputStream.close();
@@ -147,7 +171,10 @@ public class FileDownloadWorker extends Worker {
                     .setAutoCancel(true)
                     .setContentIntent(pendingIntent);
 
-            setForegroundAsync(new ForegroundInfo(id, builder.build()));
+            sendNotification();
+
+            if (hasNotificationPermissions)
+                notificationManager.notify(id + 1, builder.build());
         } catch (IOException e) {
             e.printStackTrace();
             builder
@@ -155,7 +182,10 @@ public class FileDownloadWorker extends Worker {
                     .setProgress(0,0, false)
                     .setContentText(ctx.getText(R.string.shared_fail));
 
-            setForegroundAsync(new ForegroundInfo(id, builder.build()));
+            sendNotification();
+
+            if (hasNotificationPermissions)
+                notificationManager.notify(id + 1, builder.build());
             return Result.failure();
         }
         return Result.success();

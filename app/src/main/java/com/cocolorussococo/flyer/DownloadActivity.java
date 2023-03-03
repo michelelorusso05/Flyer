@@ -9,13 +9,9 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModel;
-import androidx.work.Constraints;
-import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
-import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkManager;
+import com.cocolorussococo.flyer.Host.*;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -25,6 +21,7 @@ import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -37,6 +34,13 @@ public class DownloadActivity extends AppCompatActivity {
     static ServerSocket serverSocket;
     static Socket socket;
     static AtomicInteger currentPort = new AtomicInteger(0);
+    static InetSocketAddress group;
+
+    static {
+        try {
+            group = new InetSocketAddress(InetAddress.getByName("239.255.255.250"), 10468);
+        } catch (UnknownHostException ignored) {}
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,11 +74,27 @@ public class DownloadActivity extends AppCompatActivity {
         Log.d("Socket", "Shutting down");
 
         if (beaconTimer != null) beaconTimer.cancel();
+
         // Dispose of the socket
         if (sockets != null) {
-            for (MulticastSocket socket : sockets) {
-                socket.close();
-            }
+            byte[] packet = PacketUtils.encapsulate(
+                    currentPort.get(),
+                    // Ignored
+                    DeviceTypes.PHONE,
+                    PacketTypes.FORGETME,
+                    // Ignored
+                    Host.getHostname(DownloadActivity.this)
+            );
+            final DatagramPacket datagramPacket = new DatagramPacket(packet, packet.length, group);
+
+            new Thread(() -> {
+                for (MulticastSocket socket : sockets) {
+                    try {
+                        socket.send(datagramPacket);
+                    } catch (IOException ignored) {}
+                    socket.close();
+                }
+            }).start();
         }
         try {
             serverSocket.close();
@@ -128,7 +148,6 @@ public class DownloadActivity extends AppCompatActivity {
 
         OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileDownloadWorker.class)
                 .addTag(String.valueOf(currentPort.get()))
-                //.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build();
 
         wm.enqueue(downloadWorkRequest);
@@ -146,28 +165,20 @@ public class DownloadActivity extends AppCompatActivity {
                 sockets.add(socket);
             }
 
-            byte[] send = new byte[132];
-            String hostname = Host.getHostname(DownloadActivity.this);
-            // Send TCP port number
-
-            // Set device type (0 = Phone, 1 = Tablet)
-            send[2] = (byte) (((getResources().getConfiguration().screenLayout
-                                    & Configuration.SCREENLAYOUT_SIZE_MASK)
-                                    >= Configuration.SCREENLAYOUT_SIZE_LARGE) ? 1 : 0);
-            byte[] name = hostname.substring(0, Math.min(64, hostname.length())).getBytes();
-            System.arraycopy(name, 0, send, 3, name.length);
-
-            InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("239.255.255.250"), 10468);
+            byte[] send = PacketUtils.encapsulate(
+                    currentPort.get(),
+                    ((getResources().getConfiguration().screenLayout
+                            & Configuration.SCREENLAYOUT_SIZE_MASK)
+                            >= Configuration.SCREENLAYOUT_SIZE_LARGE) ? DeviceTypes.TABLET : DeviceTypes.PHONE,
+                    PacketTypes.OFFER,
+                    Host.getHostname(DownloadActivity.this));
 
             beaconTimer = new Timer();
             beaconTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
                     try {
-                        Log.d("Bingo", "Bingo");
-                        int portNum = currentPort.get();
-                        send[0] = (byte) ((portNum >>> 8) & 255);
-                        send[1] = (byte) (portNum & 255);
+                        PacketUtils.updatePort(send, currentPort.get());
 
                         DatagramPacket packet = new DatagramPacket(send, send.length, group);
 

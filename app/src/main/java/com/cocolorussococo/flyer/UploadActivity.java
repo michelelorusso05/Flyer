@@ -27,17 +27,12 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
-import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkManager;
 
-import com.google.android.material.snackbar.Snackbar;
-
-import java.io.File;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.InterfaceAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -147,6 +142,15 @@ public class UploadActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStop() {
+        super.onStop();
+
+        if (isChangingConfigurations()) return;
+
+        adapter.forgetDevices();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
 
@@ -189,11 +193,12 @@ public class UploadActivity extends AppCompatActivity {
             while (true) {
                 try {
                     udpSocket.receive(received);
+                    Host host = PacketUtils.deencapsulate(received);
 
-                    byte[] data = received.getData();
-                    String name = new String(data, 3, 128);
-                    int port = Byte.toUnsignedInt(data[1]) + (Byte.toUnsignedInt(data[0]) << 8);
-                    Host host = new Host(received.getAddress(), name, port, data[2]);
+                    if (host.getPacketType() == Host.PacketTypes.FORGETME) {
+                        runOnUiThread(() -> adapter.forgetDevice(host));
+                        continue;
+                    }
                     runOnUiThread(() -> adapter.addDevice(host));
 
                 } catch (SocketException e) {
@@ -246,7 +251,6 @@ public class UploadActivity extends AppCompatActivity {
         OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileUploadWorker.class)
                 .addTag(uniqueWorkID)
                 .setInputData(data.build())
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build();
 
         wm.enqueueUniqueWork(uniqueWorkID, ExistingWorkPolicy.KEEP, downloadWorkRequest);

@@ -1,33 +1,38 @@
 package com.cocolorussococo.flyer;
 
 import android.content.Context;
-import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.provider.Settings;
-import android.util.Log;
-import android.util.Pair;
 
-import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Enumeration;
-import java.util.Iterator;
 
 public class Host {
+    public enum DeviceTypes {
+        PHONE,
+        TABLET,
+        WINDOWS
+    }
+    public enum PacketTypes {
+        OFFER,
+        FORGETME
+    }
     final private InetAddress ip;
     final private String name;
+    final private PacketTypes packetType;
     private int port;
-    final private int type;
+    final private DeviceTypes deviceType;
 
-    public Host(InetAddress ip, String name, int port, int type) {
+    public Host(InetAddress ip, String name, int port, DeviceTypes type, PacketTypes packetType) {
         this.ip = ip;
         this.name = name;
         this.port = port;
-        this.type = type;
+        this.deviceType = type;
+        this.packetType = packetType;
     }
 
     public InetAddress getIp() {
@@ -42,8 +47,12 @@ public class Host {
         return port;
     }
 
-    public int getType() {
-        return type;
+    public DeviceTypes getDeviceType() {
+        return deviceType;
+    }
+
+    public PacketTypes getPacketType() {
+        return packetType;
     }
     public void updatePort(int newPort) {
         port = newPort;

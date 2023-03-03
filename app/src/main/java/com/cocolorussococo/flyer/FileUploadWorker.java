@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -19,6 +20,8 @@ import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.google.common.util.concurrent.ListenableFuture;
+
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,7 +36,32 @@ public class FileUploadWorker extends Worker {
     private final Context context;
     private final int id;
     private final boolean hasNotificationPermissions;
+    final NotificationCompat.Builder builder;
+    final NotificationManagerCompat notificationManager;
+    boolean hasExceededQuota;
+    ListenableFuture<Void> l;
+    final long startTime;
+    final String filename;
 
+    @SuppressLint("MissingPermission")
+    private void sendNotification() {
+        builder.setWhen(startTime);
+
+        if ((hasExceededQuota || (l != null && !l.isDone())) && hasNotificationPermissions)
+            notificationManager.notify(id, builder.build());
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                l = setForegroundAsync(new ForegroundInfo(id, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE));
+            }
+            else {
+                l = setForegroundAsync(new ForegroundInfo(id, builder.build()));
+            }
+        } catch (IllegalStateException e) {
+            hasExceededQuota = true;
+        }
+    }
+
+    @SuppressLint("RestrictedApi")
     public FileUploadWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
 
@@ -46,32 +74,31 @@ public class FileUploadWorker extends Worker {
         this.context = context;
         hasNotificationPermissions = (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) ||
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+
+
+        filename = FileMappings.getFilenameFromURI(context, file);
+
+        notificationManager = NotificationManagerCompat.from(context);
+
+        // Create notification
+        builder = new NotificationCompat.Builder(context, String.valueOf(42069))
+                .setSilent(true)
+                .setSmallIcon(R.drawable.outline_file_upload_24)
+                .setContentTitle(filename)
+                .setContentText("0%")
+                .setShowWhen(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
+                .setProgress(100, 0, false);
+
+        startTime = builder.getWhenIfShowing();
+        sendNotification();
     }
 
     @SuppressLint("MissingPermission")
     @NonNull
     @Override
     public Result doWork() {
-
-        String filename = FileMappings.getFilenameFromURI(context, file);
-
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
-
-        // Create notification
-        final NotificationCompat.Builder builder = new NotificationCompat.Builder(context, String.valueOf(42069))
-                .setSilent(true)
-                .setSmallIcon(R.drawable.outline_file_upload_24)
-                .setContentTitle(filename)
-                .setContentText("0%")
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setOngoing(true)
-                .setProgress(100, 0, false);
-
-        if (hasNotificationPermissions)
-            notificationManager.notify(id, builder.build());
-
-        setForegroundAsync(new ForegroundInfo(id, builder.build()));
-
         try (Socket socket = new Socket(target, port)) {
             InputStream fileStream = context.getContentResolver().openInputStream(file);
 
@@ -113,15 +140,18 @@ public class FileUploadWorker extends Worker {
 
                 // Do not issue a notification update if the percentage hasn't changed.
                 if (percentage == prevPercentage) continue;
+                prevPercentage = percentage;
+
                 // Do not issue a notification update if we are exceeding the rate limit (Android
                 // allows for 10 updates/sec, but we further reduce it down to 5 updates/sec).
                 if (System.currentTimeMillis() - elapsedMillis < 200) continue;
                 elapsedMillis = System.currentTimeMillis();
+
                 builder
                         .setContentText(percentage + "%")
                         .setProgress(100, percentage, false);
-                if (hasNotificationPermissions)
-                    notificationManager.notify(id, builder.build());
+
+                sendNotification();
             }
             fileStream.close();
             dataOutputStream.close();
@@ -132,7 +162,7 @@ public class FileUploadWorker extends Worker {
                     .setContentText(context.getText(R.string.upload_complete));
 
             if (hasNotificationPermissions)
-                notificationManager.notify(id, builder.build());
+                notificationManager.notify(id + 1, builder.build());
 
             return Result.success();
         } catch (ConnectException e) {
@@ -141,12 +171,17 @@ public class FileUploadWorker extends Worker {
                     .setOngoing(false)
                     .setContentText(context.getText(R.string.send_refused));
 
-            notificationManager.notify(id, builder.build());
+            if (hasNotificationPermissions)
+                notificationManager.notify(id + 1, builder.build());
         } catch (IOException e) {
             builder
                     .setProgress(0, 0, false)
                     .setOngoing(false)
                     .setContentText(context.getText(R.string.shared_fail));
+
+            if (hasNotificationPermissions)
+                notificationManager.notify(id + 1, builder.build());
+
             e.printStackTrace();
         }
 
