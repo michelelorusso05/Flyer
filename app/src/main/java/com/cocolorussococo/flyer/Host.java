@@ -26,6 +26,7 @@ public class Host {
     final private PacketTypes packetType;
     private int port;
     final private DeviceTypes deviceType;
+    private long lastUpdated;
 
     public Host(InetAddress ip, String name, int port, DeviceTypes type, PacketTypes packetType) {
         this.ip = ip;
@@ -33,6 +34,7 @@ public class Host {
         this.port = port;
         this.deviceType = type;
         this.packetType = packetType;
+        this.lastUpdated = System.currentTimeMillis();
     }
 
     public InetAddress getIp() {
@@ -56,6 +58,14 @@ public class Host {
     }
     public void updatePort(int newPort) {
         port = newPort;
+    }
+
+    public long getLastUpdated() {
+        return lastUpdated;
+    }
+
+    public void setLastUpdated() {
+        lastUpdated = System.currentTimeMillis();
     }
 
     @Override

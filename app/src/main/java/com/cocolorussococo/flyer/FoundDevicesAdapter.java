@@ -1,6 +1,6 @@
 package com.cocolorussococo.flyer;
 
-import android.content.Context;
+import android.app.Activity;
 import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,11 +12,15 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapter.ViewHolder> {
     private final ArrayList<Host> foundHosts;
-    private final Context context;
+    private final Activity context;
     private Uri fileToSend;
+    private final Timer cleanupTimer;
+    private boolean isScheduled;
 
     private final static int[] DEVICE_TYPES = {
             R.drawable.outline_smartphone_24,
@@ -24,9 +28,12 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
             R.drawable.baseline_windows_24
     };
 
-    public FoundDevicesAdapter(Context ctx) {
+    public FoundDevicesAdapter(Activity ctx) {
         context = ctx;
         foundHosts = new ArrayList<>();
+        cleanupTimer = new Timer();
+
+        restart();
     }
 
     @NonNull
@@ -61,6 +68,7 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
         }
         else {
             foundHosts.get(index).updatePort(found.getPort());
+            foundHosts.get(index).setLastUpdated();
         }
     }
     public void forgetDevice(Host toForget) {
@@ -80,6 +88,25 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
         notifyItemRangeRemoved(0, foundHosts.size());
         foundHosts.clear();
     }
+    public void cleanup() {
+        cleanupTimer.cancel();
+        isScheduled = false;
+    }
+    public void restart() {
+        if (isScheduled) return;
+        isScheduled = true;
+
+        cleanupTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                for (int i = foundHosts.size() - 1; i >= 0; i--) {
+                    Host h = foundHosts.get(i);
+                    if (System.currentTimeMillis() - h.getLastUpdated() > 3000)
+                        context.runOnUiThread(() -> forgetDevice(h));
+                }
+            }
+        }, 0, 3000);
+    }
     static class ViewHolder extends RecyclerView.ViewHolder {
         private final TextView deviceName;
         private final ImageView deviceIcon;
@@ -89,18 +116,6 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
             deviceName = itemView.findViewById(R.id.deviceName);
             deviceIcon = itemView.findViewById(R.id.deviceType);
             clickableLayout = itemView.findViewById(R.id.clickable_layout);
-        }
-
-        public TextView getDeviceName() {
-            return deviceName;
-        }
-
-        public ImageView getDeviceIcon() {
-            return deviceIcon;
-        }
-
-        public View getClickableLayout() {
-            return clickableLayout;
         }
     }
 }

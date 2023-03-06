@@ -120,11 +120,10 @@ public class FileUploadWorker extends Worker {
             dataOutputStream.write(mimetypeStringBytes);
 
             final long total = FileMappings.getSizeFromURI(context, file);
+            long written = 0;
 
             // Write content size
             dataOutputStream.writeLong(total);
-
-            final int startSize = dataOutputStream.size();
 
             byte[] buffer = new byte[1024 * 1024];
             int prevPercentage = 0;
@@ -133,10 +132,9 @@ public class FileUploadWorker extends Worker {
             while ((bytes = fileStream.read(buffer))
                     != -1) {
                 dataOutputStream.write(buffer, 0, bytes);
-                dataOutputStream.flush();
+                written += bytes;
 
-                final int progress = dataOutputStream.size() - startSize;
-                final int percentage = (int) ((float) progress * 100f / total);
+                final int percentage = (int) ((float) written * 100f / total);
 
                 // Do not issue a notification update if the percentage hasn't changed.
                 if (percentage == prevPercentage) continue;

@@ -122,7 +122,7 @@ public class FileDownloadWorker extends Worker {
             long size = dataInputStream.readLong();
             long total = size;
 
-            System.out.println(size);
+            System.out.println(mimeType);
 
             byte[] buffer = new byte[1024 * 1024];
             int prevPercentage = 0;
@@ -207,7 +207,10 @@ public class FileDownloadWorker extends Worker {
             else {
                 final ContentValues values = new ContentValues();
                 values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
-                values.put(MediaStore.MediaColumns.MIME_TYPE, mimetype);
+                // MediaStore likes to override a file's extension when it's set to text/plain,
+                // so we'll not put a MimeType entry for text files
+                if (!mimetype.equals("text/plain"))
+                    values.put(MediaStore.MediaColumns.MIME_TYPE, mimetype);
 
                 final Uri contentUri = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
 

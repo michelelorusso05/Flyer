@@ -53,7 +53,6 @@ public class UploadActivity extends AppCompatActivity {
 
     ActivityResultLauncher<String> mGetContent = registerForActivityResult(new ActivityResultContracts.GetContent(),
             uri -> {
-                open = false;
                 if (uri == null) {
                     finish();
                     return;
@@ -90,18 +89,7 @@ public class UploadActivity extends AppCompatActivity {
         hotspotWarning.setText(HtmlCompat.fromHtml(getString(R.string.multiple_connections_warning), HtmlCompat.FROM_HTML_MODE_LEGACY));
         selectedFile = findViewById(R.id.selectedFile);
 
-        //searchForDevices();
-        //retryButton.setOnClickListener((View v) -> searchForDevices());
-
-        SwipeRefreshLayout refreshLayout = findViewById(R.id.swipeRefresh);
-        refreshLayout.setOnRefreshListener(() -> {
-            //searchForDevices();
-            refreshLayout.setRefreshing(false);
-        });
-
-        if (open) return;
-
-
+        // Get text from share intent (not supported yet)
         Uri shareIntentUri = getIntent().getParcelableExtra(Intent.EXTRA_STREAM);
         if (getIntent().getStringExtra(Intent.EXTRA_TEXT) != null && shareIntentUri == null) {
             Toast.makeText(this, "Flyer non permette l'invio di testo semplice al momento.", Toast.LENGTH_SHORT).show();
@@ -109,12 +97,17 @@ public class UploadActivity extends AppCompatActivity {
             return;
         }
 
+        // Get file from share intent
         if (shareIntentUri != null && selectedUri == null) {
             selectedUri = shareIntentUri;
             postOpenFile();
             return;
         }
 
+        // If activity gets recreated while FileChooser is launched, do not launch it again
+        if (open) return;
+
+        // Get URI back from saved instance state
         String uri = (savedInstanceState != null) ? savedInstanceState.getString("selectedUri") : null;
         if (uri != null) {
             selectedUri = Uri.parse(uri);
@@ -138,16 +131,10 @@ public class UploadActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
             udpSocket.close();
+
+            adapter.forgetDevices();
+            adapter.cleanup();
         }
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-
-        if (isChangingConfigurations()) return;
-
-        adapter.forgetDevices();
     }
 
     @Override
@@ -156,6 +143,7 @@ public class UploadActivity extends AppCompatActivity {
 
         if (selectedUri == null || udpSocket != null) return;
         searchForDevices();
+        adapter.restart();
     }
 
     @Override
@@ -230,6 +218,7 @@ public class UploadActivity extends AppCompatActivity {
         mGetContent.launch("*/*");
     }
     private void postOpenFile() {
+        open = false;
         searchForDevices();
 
         selectedFile.setText(FileMappings.getFilenameFromURI(UploadActivity.this, selectedUri)
