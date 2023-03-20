@@ -2,14 +2,12 @@ package com.cocolorussococo.flyer;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Notification;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
-import android.provider.OpenableColumns;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
@@ -90,6 +88,11 @@ public class FileUploadWorker extends Worker {
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .setProgress(100, 0, false);
+
+        // Display notification as soon as possible (call needed for Android >= 12)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
+        }
 
         startTime = builder.getWhenIfShowing();
         sendNotification();

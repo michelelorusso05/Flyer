@@ -22,6 +22,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.work.ForegroundInfo;
+import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 import androidx.work.impl.utils.futures.SettableFuture;
@@ -34,6 +35,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketException;
+import java.text.DecimalFormat;
 
 public class FileDownloadWorker extends Worker {
     final Context ctx;
@@ -44,12 +47,30 @@ public class FileDownloadWorker extends Worker {
     boolean hasExceededQuota;
     ListenableFuture<Void> l;
     final long startTime;
+    final Socket socket;
 
     @SuppressLint("MissingPermission")
+    @Override
+    public void onStopped() {
+        try {
+            socket.close();
+        } catch (IOException ignored) {}
+        
+        if (hasNotificationPermissions) {
+            builder
+                    .setOngoing(false)
+                    .setProgress(0, 0, false)
+                    .setContentText("Annullato")
+                    .clearActions();
+            notificationManager.notify(id + 1, builder.build());
+        }
+    }
+
+    @SuppressLint({"MissingPermission", "RestrictedApi"})
     private void sendNotification() {
         builder.setWhen(startTime);
 
-        if ((hasExceededQuota || (l != null && !l.isDone())) && hasNotificationPermissions)
+        if (hasExceededQuota && hasNotificationPermissions)
             notificationManager.notify(id, builder.build());
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -74,19 +95,25 @@ public class FileDownloadWorker extends Worker {
 
         notificationManager = NotificationManagerCompat.from(ctx);
 
+
         // Create notification
         builder = new NotificationCompat.Builder(ctx, String.valueOf(42069))
                 .setSilent(true)
                 .setSmallIcon(R.drawable.outline_file_download_24)
                 .setShowWhen(true)
-                .setContentText("0%")
+                .setContentText("0% · 0 MB/s")
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_PROGRESS)
                 .setProgress(100, 0, false);
 
+        // Display notification as soon as possible (call needed for Android >= 12)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
+        }
+
         startTime = builder.getWhenIfShowing();
-        sendNotification();
+        socket = DownloadActivity.consumeSocket();
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
@@ -94,12 +121,12 @@ public class FileDownloadWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        try (Socket socket = DownloadActivity.consumeSocket()) {
+        try {
             socket.setSoTimeout(5000);
             socket.setReceiveBufferSize(1024 * 1024);
             DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
-            int bytes;
+            int bytes = 0;
 
             int filenameLength = dataInputStream.readByte();
             byte[] filenameBuffer = new byte[filenameLength];
@@ -112,7 +139,10 @@ public class FileDownloadWorker extends Worker {
             String filename = new String(filenameBuffer);
             String mimeType = new String(mimetypeBuffer);
 
-            builder.setContentTitle(filename);
+            PendingIntent cancelIntent = WorkManager.getInstance(ctx).createCancelPendingIntent(getId());
+            builder
+                    .setContentTitle(filename)
+                    .addAction(0, "Annulla", cancelIntent);
             sendNotification();
 
             Pair<OutputStream, Uri> pair = openOutputStreamForDownloadedFile(ctx, filename, mimeType);
@@ -126,32 +156,56 @@ public class FileDownloadWorker extends Worker {
 
             byte[] buffer = new byte[1024 * 1024];
             int prevPercentage = 0;
+            long speedMillis = System.currentTimeMillis();
             long elapsedMillis = System.currentTimeMillis();
-            while (size > 0
-                    && (bytes = dataInputStream.read(
-                    buffer, 0,
-                    (int)Math.min(buffer.length, size)))
-                    != -1) {
+            long bytesConsumedInTime = 0;
+            boolean shouldUpdateNotification = false;
+
+            final DecimalFormat decimalFormat = new DecimalFormat("0.00");
+            String speed = "0 MB/s";
+
+            while (size > 0) {
+                bytes = dataInputStream.read(buffer, 0, (int) Math.min(buffer.length, size));
+                if (bytes == -1) throw new SocketException("Socket has been closed by remote host.");
+
+                bytesConsumedInTime += bytes;
+
                 fileOutputStream.write(buffer, 0, bytes);
                 size -= bytes;
 
+                // Progress logic check
                 final long progress = total - size;
                 final int percentage = (int) ((float) progress * 100f / total);
                 // Do not issue a notification update if the percentage hasn't changed.
-                if (percentage == prevPercentage) continue;
+                if (percentage != prevPercentage) shouldUpdateNotification = true;
                 prevPercentage = percentage;
+
+                // Speed update (at least once a second) check
+                long curTime = System.currentTimeMillis();
+                if (curTime - speedMillis >= 1000) {
+                    shouldUpdateNotification = true;
+                    speedMillis = curTime;
+
+                    speed = decimalFormat.format((float) bytesConsumedInTime / 1000000f).concat(" MB/s");
+                    bytesConsumedInTime = 0;
+                }
 
                 // Do not issue a notification update if we are exceeding the rate limit (Android
                 // allows for 10 updates/sec, but we further reduce it down to 5 updates/sec).
                 if (System.currentTimeMillis() - elapsedMillis < 200) continue;
                 elapsedMillis = System.currentTimeMillis();
 
-                builder
-                        .setContentText(percentage + "%")
-                        .setProgress(100, percentage, false);
+                if (shouldUpdateNotification) {
+                    builder
+                            .setContentText(percentage + "% · " + speed)
+                            .setProgress(100, percentage, false);
 
-                sendNotification();
+                    sendNotification();
+                    shouldUpdateNotification = false;
+                }
             }
+
+            if (socket.isClosed()) throw new SocketException("Socket is closed.");
 
             dataInputStream.close();
             fileOutputStream.close();
@@ -169,6 +223,7 @@ public class FileDownloadWorker extends Worker {
                     .setProgress(0,0, false)
                     .setContentText(ctx.getText(R.string.download_complete))
                     .setAutoCancel(true)
+                    .clearActions()
                     .setContentIntent(pendingIntent);
 
             sendNotification();
@@ -180,7 +235,8 @@ public class FileDownloadWorker extends Worker {
             builder
                     .setOngoing(false)
                     .setProgress(0,0, false)
-                    .setContentText(ctx.getText(R.string.shared_fail));
+                    .setContentText(ctx.getText(R.string.shared_fail))
+                    .clearActions();
 
             sendNotification();
 

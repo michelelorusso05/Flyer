@@ -19,7 +19,8 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Flyer"
-        tools:targetApi="s">
+        android:enableOnBackInvokedCallback="true"
+        tools:targetApi="tiramisu">
         <activity
             android:name=".DownloadActivity"
             android:exported="false"
