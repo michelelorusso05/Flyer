@@ -33,6 +33,7 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
@@ -55,19 +56,11 @@ public class FileDownloadWorker extends Worker {
         try {
             socket.close();
         } catch (IOException ignored) {}
-        
-        if (hasNotificationPermissions) {
-            builder
-                    .setOngoing(false)
-                    .setProgress(0, 0, false)
-                    .setContentText("Annullato")
-                    .clearActions();
-            notificationManager.notify(id + 1, builder.build());
-        }
     }
 
     @SuppressLint({"MissingPermission", "RestrictedApi"})
     private void sendNotification() {
+        Log.d("Notification", "Updated");
         builder.setWhen(startTime);
 
         if (hasExceededQuota && hasNotificationPermissions)
@@ -105,6 +98,7 @@ public class FileDownloadWorker extends Worker {
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_PROGRESS)
+                .setOnlyAlertOnce(true)
                 .setProgress(100, 0, false);
 
         // Display notification as soon as possible (call needed for Android >= 12)
@@ -126,7 +120,7 @@ public class FileDownloadWorker extends Worker {
             socket.setReceiveBufferSize(1024 * 1024);
             DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
-            int bytes = 0;
+            int bytes;
 
             int filenameLength = dataInputStream.readByte();
             byte[] filenameBuffer = new byte[filenameLength];
@@ -142,7 +136,7 @@ public class FileDownloadWorker extends Worker {
             PendingIntent cancelIntent = WorkManager.getInstance(ctx).createCancelPendingIntent(getId());
             builder
                     .setContentTitle(filename)
-                    .addAction(0, "Annulla", cancelIntent);
+                    .addAction(0, ctx.getString(R.string.transfer_cancel), cancelIntent);
             sendNotification();
 
             Pair<OutputStream, Uri> pair = openOutputStreamForDownloadedFile(ctx, filename, mimeType);
@@ -151,8 +145,6 @@ public class FileDownloadWorker extends Worker {
 
             long size = dataInputStream.readLong();
             long total = size;
-
-            System.out.println(mimeType);
 
             byte[] buffer = new byte[1024 * 1024];
             int prevPercentage = 0;
@@ -166,7 +158,7 @@ public class FileDownloadWorker extends Worker {
 
             while (size > 0) {
                 bytes = dataInputStream.read(buffer, 0, (int) Math.min(buffer.length, size));
-                if (bytes == -1) throw new SocketException("Socket has been closed by remote host.");
+                if (bytes == -1) throw new InterruptedException("Socket has been closed by remote host.");
 
                 bytesConsumedInTime += bytes;
 
@@ -191,8 +183,8 @@ public class FileDownloadWorker extends Worker {
                 }
 
                 // Do not issue a notification update if we are exceeding the rate limit (Android
-                // allows for 10 updates/sec, but we further reduce it down to 5 updates/sec).
-                if (System.currentTimeMillis() - elapsedMillis < 200) continue;
+                // allows for 10 updates/sec, but we further reduce it down to 2 updates/sec).
+                if (System.currentTimeMillis() - elapsedMillis < 500) continue;
                 elapsedMillis = System.currentTimeMillis();
 
                 if (shouldUpdateNotification) {
@@ -204,8 +196,6 @@ public class FileDownloadWorker extends Worker {
                     shouldUpdateNotification = false;
                 }
             }
-
-            if (socket.isClosed()) throw new SocketException("Socket is closed.");
 
             dataInputStream.close();
             fileOutputStream.close();
@@ -230,6 +220,23 @@ public class FileDownloadWorker extends Worker {
 
             if (hasNotificationPermissions)
                 notificationManager.notify(id + 1, builder.build());
+        } catch (InterruptedException | SocketException e) {
+            e.printStackTrace();
+            builder
+                    .setOngoing(false)
+                    .setProgress(0,0, false)
+                    .setContentText(ctx.getText(R.string.transfer_cancelled))
+                    .clearActions();
+
+            // ConnectionReset, ConnectionAbort and NetworkUnreachable fall into the "An error occourred" category
+            if (e.getMessage() != null &&
+                    (e.getMessage().contains("ENETUNREACH") || e.getMessage().contains("abort")))
+                builder.setContentText(ctx.getText(R.string.shared_fail));
+
+            sendNotification();
+
+            if (hasNotificationPermissions)
+                notificationManager.notify(id + 1, builder.build());
         } catch (IOException e) {
             e.printStackTrace();
             builder
@@ -245,6 +252,10 @@ public class FileDownloadWorker extends Worker {
             return Result.failure();
         }
         return Result.success();
+    }
+
+    private void onDownloadFailed(Uri corruptedFile) {
+
     }
 
     private static @NonNull Pair<OutputStream, Uri> openOutputStreamForDownloadedFile(Context ctx, String filename, String mimetype) {

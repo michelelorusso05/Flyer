@@ -141,7 +141,7 @@ public class UploadActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
-        if (selectedUri == null || udpSocket != null) return;
+        if (selectedUri == null || isChangingConfigurations()) return;
         searchForDevices();
         adapter.restart();
     }

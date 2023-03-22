@@ -3,6 +3,7 @@ package com.cocolorussococo.flyer;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Notification;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
@@ -15,6 +16,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.work.Data;
 import androidx.work.ForegroundInfo;
+import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
@@ -25,13 +27,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.Socket;
+import java.text.DecimalFormat;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class FileUploadWorker extends Worker {
 
     private final int port;
     private final String target;
     private final Uri file;
-    private final Context context;
+    private final Context ctx;
     private final int id;
     private final boolean hasNotificationPermissions;
     final NotificationCompat.Builder builder;
@@ -40,12 +45,21 @@ public class FileUploadWorker extends Worker {
     ListenableFuture<Void> l;
     final long startTime;
     final String filename;
+    Socket socket;
+
+    @Override
+    public void onStopped() {
+        try {
+            if (socket != null)
+                socket.close();
+        } catch (IOException ignored) {}
+    }
 
     @SuppressLint("MissingPermission")
     private void sendNotification() {
         builder.setWhen(startTime);
 
-        if ((hasExceededQuota || (l != null && !l.isDone())) && hasNotificationPermissions)
+        if (hasExceededQuota && hasNotificationPermissions)
             notificationManager.notify(id, builder.build());
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -60,8 +74,8 @@ public class FileUploadWorker extends Worker {
     }
 
     @SuppressLint("RestrictedApi")
-    public FileUploadWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
-        super(context, workerParams);
+    public FileUploadWorker(@NonNull Context ctx, @NonNull WorkerParameters workerParams) {
+        super(ctx, workerParams);
 
         Data data = workerParams.getInputData();
         target = data.getString("targetHost");
@@ -69,17 +83,17 @@ public class FileUploadWorker extends Worker {
         file = Uri.parse(data.getString("file"));
         id = workerParams.getId().hashCode();
 
-        this.context = context;
+        this.ctx = ctx;
         hasNotificationPermissions = (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) ||
-                ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+                ActivityCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
 
 
-        filename = FileMappings.getFilenameFromURI(context, file);
+        filename = FileMappings.getFilenameFromURI(ctx, file);
 
-        notificationManager = NotificationManagerCompat.from(context);
+        notificationManager = NotificationManagerCompat.from(ctx);
 
         // Create notification
-        builder = new NotificationCompat.Builder(context, String.valueOf(42069))
+        builder = new NotificationCompat.Builder(ctx, String.valueOf(42069))
                 .setSilent(true)
                 .setSmallIcon(R.drawable.outline_file_upload_24)
                 .setContentTitle(filename)
@@ -87,6 +101,7 @@ public class FileUploadWorker extends Worker {
                 .setShowWhen(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
+                .setOnlyAlertOnce(true)
                 .setProgress(100, 0, false);
 
         // Display notification as soon as possible (call needed for Android >= 12)
@@ -102,16 +117,23 @@ public class FileUploadWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        try (Socket socket = new Socket(target, port)) {
-            InputStream fileStream = context.getContentResolver().openInputStream(file);
+        try {
+            socket = new Socket(target, port);
+            InputStream fileStream = ctx.getContentResolver().openInputStream(file);
 
             int bytes;
             socket.setSoTimeout(5000);
+
             socket.setSendBufferSize(1024 * 1024);
             DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
+            PendingIntent cancelIntent = WorkManager.getInstance(ctx).createCancelPendingIntent(getId());
+            builder
+                    .setContentTitle(filename)
+                    .addAction(0, ctx.getString(R.string.transfer_cancel), cancelIntent);
+
             byte[] filenameStringBytes = filename.getBytes();
-            byte[] mimetypeStringBytes = context.getContentResolver().getType(file).getBytes();
+            byte[] mimetypeStringBytes = ctx.getContentResolver().getType(file).getBytes();
 
             // Write filename size
             dataOutputStream.writeByte(filenameStringBytes.length);
@@ -122,7 +144,7 @@ public class FileUploadWorker extends Worker {
             // Write mimetype
             dataOutputStream.write(mimetypeStringBytes);
 
-            final long total = FileMappings.getSizeFromURI(context, file);
+            final long total = FileMappings.getSizeFromURI(ctx, file);
             long written = 0;
 
             // Write content size
@@ -130,37 +152,72 @@ public class FileUploadWorker extends Worker {
 
             byte[] buffer = new byte[1024 * 1024];
             int prevPercentage = 0;
+            long speedMillis = System.currentTimeMillis();
             long elapsedMillis = System.currentTimeMillis();
+            long bytesConsumedInTime = 0;
+            boolean shouldUpdateNotification = false;
 
-            while ((bytes = fileStream.read(buffer))
-                    != -1) {
+            final DecimalFormat decimalFormat = new DecimalFormat("0.00");
+            String speed = "0 MB/s";
+
+            // Sending data on a socket doesn't implement a timeout, so we create one from scratch
+            Watchdog watchdog = new Watchdog(5000, () -> {
+                try {
+                    socket.close();
+                } catch (IOException ignored) {}
+            });
+
+            while (true) {
+                bytes = fileStream.read(buffer);
+                if (bytes == -1) break;
+
+                bytesConsumedInTime += bytes;
+
                 dataOutputStream.write(buffer, 0, bytes);
                 written += bytes;
+
+                watchdog.resetTimer();
 
                 final int percentage = (int) ((float) written * 100f / total);
 
                 // Do not issue a notification update if the percentage hasn't changed.
-                if (percentage == prevPercentage) continue;
+                if (percentage != prevPercentage) shouldUpdateNotification = true;
                 prevPercentage = percentage;
 
+                // Speed update (at least once a second) check
+                long curTime = System.currentTimeMillis();
+                if (curTime - speedMillis >= 1000) {
+                    shouldUpdateNotification = true;
+                    speedMillis = curTime;
+
+                    speed = decimalFormat.format((float) bytesConsumedInTime / 1000000f).concat(" MB/s");
+                    bytesConsumedInTime = 0;
+                }
+
                 // Do not issue a notification update if we are exceeding the rate limit (Android
-                // allows for 10 updates/sec, but we further reduce it down to 5 updates/sec).
-                if (System.currentTimeMillis() - elapsedMillis < 200) continue;
+                // allows for 10 updates/sec, but we further reduce it down to 2 updates/sec).
+                if (System.currentTimeMillis() - elapsedMillis < 500) continue;
                 elapsedMillis = System.currentTimeMillis();
 
-                builder
-                        .setContentText(percentage + "%")
-                        .setProgress(100, percentage, false);
+                if (shouldUpdateNotification) {
+                    builder
+                            .setContentText(percentage + "% · " + speed)
+                            .setProgress(100, percentage, false);
 
-                sendNotification();
+                    sendNotification();
+                    shouldUpdateNotification = false;
+                }
             }
             fileStream.close();
             dataOutputStream.close();
 
+            watchdog.done();
+
             builder
                     .setProgress(0, 0, false)
                     .setOngoing(false)
-                    .setContentText(context.getText(R.string.upload_complete));
+                    .setContentText(ctx.getText(R.string.upload_complete))
+                    .clearActions();
 
             if (hasNotificationPermissions)
                 notificationManager.notify(id + 1, builder.build());
@@ -170,7 +227,8 @@ public class FileUploadWorker extends Worker {
             builder
                     .setProgress(0, 0, false)
                     .setOngoing(false)
-                    .setContentText(context.getText(R.string.send_refused));
+                    .setContentText(ctx.getText(R.string.send_refused))
+                    .clearActions();
 
             if (hasNotificationPermissions)
                 notificationManager.notify(id + 1, builder.build());
@@ -178,7 +236,13 @@ public class FileUploadWorker extends Worker {
             builder
                     .setProgress(0, 0, false)
                     .setOngoing(false)
-                    .setContentText(context.getText(R.string.shared_fail));
+                    .setContentText(ctx.getText(R.string.shared_fail))
+                    .clearActions();
+
+            // BrokenPipe and ConnectionClosed fall into the "Transfer cancelled" category
+            if (e.getMessage() != null &&
+                    (e.getMessage().contains("Broken pipe") || e.getMessage().contains("closed") || e.getMessage().contains("reset")))
+                builder.setContentText(ctx.getText(R.string.transfer_cancelled));
 
             if (hasNotificationPermissions)
                 notificationManager.notify(id + 1, builder.build());
@@ -187,5 +251,31 @@ public class FileUploadWorker extends Worker {
         }
 
         return Result.failure();
+    }
+
+    private static class Watchdog {
+        private final Runnable runOnFail;
+        private final int timeout;
+        private Timer timer;
+
+        public Watchdog(int timeout, Runnable runOnFail) {
+            this.timeout = timeout;
+            this.runOnFail = runOnFail;
+
+            resetTimer();
+        }
+        public void resetTimer() {
+            if (timer != null) timer.cancel();
+            timer = new Timer();
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    runOnFail.run();
+                }
+            }, timeout);
+        }
+        public void done() {
+            if (timer != null) timer.cancel();
+        }
     }
 }

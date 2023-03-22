@@ -19,7 +19,7 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
     private final ArrayList<Host> foundHosts;
     private final Activity context;
     private Uri fileToSend;
-    private final Timer cleanupTimer;
+    private Timer cleanupTimer;
     private boolean isScheduled;
 
     private final static int[] DEVICE_TYPES = {
@@ -89,6 +89,8 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
         foundHosts.clear();
     }
     public void cleanup() {
+        if (!isScheduled) return;
+
         cleanupTimer.cancel();
         isScheduled = false;
     }
@@ -96,6 +98,7 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
         if (isScheduled) return;
         isScheduled = true;
 
+        cleanupTimer = new Timer();
         cleanupTimer.schedule(new TimerTask() {
             @Override
             public void run() {

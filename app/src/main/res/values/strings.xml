@@ -26,5 +26,7 @@
     <string name="power_optimization_title">Disable battery optimizations</string>
     <string name="power_optimization_desc">The Android OS automatically hibernates apps when the screen is turned off in order to save battery.\nHowever, this optimizations will stop any operation in progress.\n\nYou can override this behaviour by going into Settings, switching from \"Apps not optimized\" to \"All\" and deselecting Flyer in the list of apps.</string>
     <string name="take_me_to_settings">Take me to settings</string>
+    <string name="transfer_cancel">Cancel</string>
+    <string name="transfer_cancelled">Transfer cancelled</string>
 
 </resources>
