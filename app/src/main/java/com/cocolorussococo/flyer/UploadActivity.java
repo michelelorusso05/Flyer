@@ -170,7 +170,7 @@ public class UploadActivity extends AppCompatActivity {
             }
 
             udpSocket = new MulticastSocket(10468);
-            InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("239.255.255.250"), 10468);
+            InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("224.0.0.255"), 10468);
 
             final ArrayList<NetworkInterface> interfaces = Host.getActiveInterfaces();
             for (NetworkInterface networkInterface : interfaces)
