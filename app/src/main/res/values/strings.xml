@@ -28,5 +28,9 @@
     <string name="take_me_to_settings">Take me to settings</string>
     <string name="transfer_cancel">Cancel</string>
     <string name="transfer_cancelled">Transfer cancelled</string>
+    <string name="no_interfaces_available_dialog_title">You\'re not connected to any network</string>
+    <string name="no_interfaces_available_dialog_desc">Flyer can send files to any device connected to your local network. Connect to a WiFi or enable the hotspot to continue.</string>
+    <string name="open_wifi_settings">WiFi settings</string>
+    <string name="open_hotspot_settings">Hotspot settings</string>
 
 </resources>

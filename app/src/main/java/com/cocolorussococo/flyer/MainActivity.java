@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.SocketException;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -65,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         Button upload = findViewById(R.id.uploadButton);
-        upload.setOnClickListener((v) -> startActivity(new Intent(this, UploadActivity.class)));
+        upload.setOnClickListener((v) -> launchActivityChecked(UploadActivity.class));
 
         Button download = findViewById(R.id.downloadButton);
         download.setOnClickListener((v) -> {
@@ -80,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
             }
-            startActivity(new Intent(this, DownloadActivity.class));
+            launchActivityChecked(DownloadActivity.class);
         });
 
         findViewById(R.id.dozeWarningClickableLayout).setOnClickListener((v) -> {
@@ -124,5 +125,36 @@ public class MainActivity extends AppCompatActivity {
         boolean allowInDozeMode = getSystemService(PowerManager.class)
                 .isIgnoringBatteryOptimizations("com.cocolorussococo.flyer");
         findViewById(R.id.dozeModeWarning).setVisibility(allowInDozeMode ? View.GONE : View.VISIBLE);
+    }
+    private void launchActivityChecked(Class<?> cls) {
+        if (hasValidInterfaces()) {
+            startActivity(new Intent(this, cls));
+        }
+        else {
+            new MaterialAlertDialogBuilder(this)
+                    .setIcon(R.drawable.outline_wifi_24)
+                    .setTitle(R.string.no_interfaces_available_dialog_title)
+                    .setMessage(R.string.no_interfaces_available_dialog_desc)
+                    // Open WiFi settings
+                    .setPositiveButton(R.string.open_wifi_settings, (dialog, which) -> {
+                        startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
+                    })
+                    // Open Router&Tethering settings
+                    .setNegativeButton(R.string.open_hotspot_settings, (dialog, which) -> {
+                        Intent tetherSettings = new Intent();
+                        tetherSettings.setClassName("com.android.settings", "com.android.settings.TetherSettings");
+
+                        startActivity(tetherSettings);
+                    })
+                    .setNeutralButton(android.R.string.ok, (dialog, which) -> {})
+                    .show();
+        }
+    }
+    private boolean hasValidInterfaces() {
+        try {
+            return Host.getActiveInterfaces().size() > 0;
+        } catch (SocketException e) {
+            return false;
+        }
     }
 }

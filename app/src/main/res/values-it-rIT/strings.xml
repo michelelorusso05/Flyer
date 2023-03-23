@@ -29,4 +29,8 @@
     <string name="take_me_to_settings">Vai ad impostazioni</string>
     <string name="transfer_cancel">Annulla</string>
     <string name="transfer_cancelled">Trasferimento annullato</string>
+    <string name="no_interfaces_available_dialog_title">Non sei connesso a nessuna rete</string>
+    <string name="no_interfaces_available_dialog_desc">Flyer può mandare file ai dispostivi connessi alla tua stessa rete. Connettiti ad una rete WiFi oppure attiva l\'hotspot per continuare.</string>
+    <string name="open_wifi_settings">Impostazioni WiFi</string>
+    <string name="open_hotspot_settings">Impostazioni hotspot</string>
 </resources>
