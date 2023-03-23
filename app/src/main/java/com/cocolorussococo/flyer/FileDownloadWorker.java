@@ -18,6 +18,7 @@ import android.util.Log;
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -115,6 +116,7 @@ public class FileDownloadWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
+        Uri toSave = null;
         try {
             socket.setSoTimeout(5000);
             socket.setReceiveBufferSize(1024 * 1024);
@@ -140,6 +142,7 @@ public class FileDownloadWorker extends Worker {
             sendNotification();
 
             Pair<OutputStream, Uri> pair = openOutputStreamForDownloadedFile(ctx, filename, mimeType);
+            toSave = pair.second;
             if (pair.first == null) throw new RuntimeException("Something went wrong when opening output file.");
             OutputStream fileOutputStream = pair.first;
 
@@ -202,7 +205,7 @@ public class FileDownloadWorker extends Worker {
 
             Intent intent = new Intent(Intent.ACTION_VIEW);
             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            intent.setDataAndType(pair.second, mimeType);
+            intent.setDataAndType(toSave, mimeType);
 
             Intent chooser = Intent.createChooser(intent, ctx.getText(R.string.file_chooser_label));
             PendingIntent pendingIntent = PendingIntent.getActivity(ctx, id, chooser,
@@ -237,6 +240,9 @@ public class FileDownloadWorker extends Worker {
 
             if (hasNotificationPermissions)
                 notificationManager.notify(id + 1, builder.build());
+
+            onDownloadFailed(toSave);
+            return Result.failure();
         } catch (IOException e) {
             e.printStackTrace();
             builder
@@ -249,13 +255,23 @@ public class FileDownloadWorker extends Worker {
 
             if (hasNotificationPermissions)
                 notificationManager.notify(id + 1, builder.build());
+
+            onDownloadFailed(toSave);
             return Result.failure();
         }
         return Result.success();
     }
 
-    private void onDownloadFailed(Uri corruptedFile) {
+    private void onDownloadFailed(@Nullable Uri corruptedFile) {
+        if (corruptedFile == null) return;
 
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            if (!new File(corruptedFile.getPath()).delete())
+                Log.w("Deletion error", "Unable to delete " + corruptedFile.getPath());
+        }
+        else {
+            ctx.getContentResolver().delete(corruptedFile, null, null);
+        }
     }
 
     private static @NonNull Pair<OutputStream, Uri> openOutputStreamForDownloadedFile(Context ctx, String filename, String mimetype) {

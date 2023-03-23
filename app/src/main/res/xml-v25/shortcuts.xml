@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="uploadFile"
+        android:icon="@drawable/outline_file_upload_24"
+        android:enabled="true"
+        android:shortcutLongLabel="@string/send_file"
+        android:shortcutShortLabel="@string/send_file">
+
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.cocolorussococo.flyer.UploadActivity"
+            android:targetPackage="com.cocolorussococo.flyer" />
+
+    </shortcut>
+    <shortcut
+        android:shortcutId="downloadFile"
+        android:icon="@drawable/outline_file_download_24"
+        android:enabled="true"
+        android:shortcutLongLabel="@string/receive_file"
+        android:shortcutShortLabel="@string/receive_file">
+
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.cocolorussococo.flyer.DownloadActivity"
+            android:targetPackage="com.cocolorussococo.flyer" />
+
+    </shortcut>
+</shortcuts>
