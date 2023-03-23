@@ -123,7 +123,7 @@ public class UploadActivity extends AppCompatActivity {
 
         if (udpSocket != null && !isChangingConfigurations()) {
             try {
-                InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("239.255.255.250"), 10468);
+                InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("224.0.0.255"), 10468);
 
                 for (NetworkInterface networkInterface : Host.getActiveInterfaces())
                     udpSocket.leaveGroup(group, networkInterface);
