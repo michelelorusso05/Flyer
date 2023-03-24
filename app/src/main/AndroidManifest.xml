@@ -20,7 +20,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Flyer"
         android:enableOnBackInvokedCallback="true"
-        tools:targetApi="tiramisu">
+        tools:targetApi="tiramisu"
+        android:localeConfig="@xml/locales_config">
         <activity
             android:name=".DownloadActivity"
             android:exported="false"
@@ -59,7 +60,7 @@
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
-    </service>
+        </service>
     </application>
 
 </manifest>
