@@ -55,6 +55,7 @@ public class UploadActivity extends AppCompatActivity {
             uri -> {
                 if (uri == null) {
                     finish();
+                    open = false;
                     return;
                 }
                 selectedUri = uri;
