@@ -29,6 +29,8 @@ import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 
+import com.google.android.material.snackbar.Snackbar;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -36,20 +38,26 @@ import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 
 public class UploadActivity extends AppCompatActivity {
     RecyclerView recyclerView;
     FoundDevicesAdapter adapter;
-    TextView status;
-    TextView hotspotWarning;
     TextView selectedFile;
-    View pBar;
-    ImageButton retryButton;
     MulticastSocket udpSocket;
     WifiManager.MulticastLock multicastLock;
     Uri selectedUri;
     static boolean open = false;
+    static InetSocketAddress group;
+
+    static {
+        try {
+            group = new InetSocketAddress(InetAddress.getByName("224.0.0.255"), 10468);
+        } catch (UnknownHostException ignored) {}
+    }
+    NetworkUpdateCallback callback = new NetworkUpdateCallback(this);
+    final ArrayList<NetworkInterface> subbedInterfaces = new ArrayList<>();
 
     ActivityResultLauncher<String> mGetContent = registerForActivityResult(new ActivityResultContracts.GetContent(),
             uri -> {
@@ -78,16 +86,11 @@ public class UploadActivity extends AppCompatActivity {
             finish();
 
         recyclerView = findViewById(R.id.foundDevices);
-        adapter = new FoundDevicesAdapter(this);
+        adapter = new FoundDevicesAdapter(this, this::connect);
         recyclerView.setAdapter(adapter);
         boolean landscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         recyclerView.setLayoutManager(new GridLayoutManager(this, landscape ? 6 : 3));
 
-        status = findViewById(R.id.status);
-        pBar = findViewById(R.id.progressBar);
-        retryButton = findViewById(R.id.retryButton);
-        hotspotWarning = findViewById(R.id.hotspotWarning);
-        hotspotWarning.setText(HtmlCompat.fromHtml(getString(R.string.multiple_connections_warning), HtmlCompat.FROM_HTML_MODE_LEGACY));
         selectedFile = findViewById(R.id.selectedFile);
 
         // Get text from share intent (not supported yet)
@@ -122,20 +125,17 @@ public class UploadActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
 
-        if (udpSocket != null && !isChangingConfigurations()) {
-            try {
-                InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("224.0.0.255"), 10468);
+        if (udpSocket == null || isChangingConfigurations()) return;
+        Log.d("Paused", "paused");
+        try {
+            unsubAll();
+        } catch (IOException ignored) {}
+        adapter.forgetDevices();
+        adapter.cleanup();
 
-                for (NetworkInterface networkInterface : Host.getActiveInterfaces())
-                    udpSocket.leaveGroup(group, networkInterface);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            udpSocket.close();
-
-            adapter.forgetDevices();
-            adapter.cleanup();
-        }
+        callback.unregister();
+        udpSocket.close();
+        udpSocket = null;
     }
 
     @Override
@@ -143,8 +143,11 @@ public class UploadActivity extends AppCompatActivity {
         super.onResume();
 
         if (selectedUri == null || isChangingConfigurations()) return;
+        Log.d("Resumed", "resumed");
         searchForDevices();
         adapter.restart();
+
+        callback.register(this::updateInterfaces);
     }
 
     @Override
@@ -155,88 +158,78 @@ public class UploadActivity extends AppCompatActivity {
 
     private void searchForDevices() {
         adapter.forgetDevices();
-
-        status.setText(R.string.searching_label);
-        pBar.setVisibility(View.VISIBLE);
-        retryButton.setVisibility(View.GONE);
+        try {
+            udpSocket = new MulticastSocket(10468);
+        } catch (IOException ignored) {}
         new Thread(this::listenUDP).start();
     }
-    private void listenUDP() {
-        Log.d("UDP", "started");
+    private void unsubAll() throws IOException {
+        synchronized (subbedInterfaces) {
+            for (NetworkInterface networkInterface : subbedInterfaces)
+                udpSocket.leaveGroup(group, networkInterface);
+
+            subbedInterfaces.clear();
+        }
+    }
+    private void updateInterfaces() {
         try {
+            unsubAll();
 
-            if (udpSocket != null && !udpSocket.isClosed()) {
-                udpSocket.close();
-                Thread.sleep(1000);
-            }
-
-            udpSocket = new MulticastSocket(10468);
-            InetSocketAddress group = new InetSocketAddress(InetAddress.getByName("224.0.0.255"), 10468);
-
-            final ArrayList<NetworkInterface> interfaces = Host.getActiveInterfaces();
-            for (NetworkInterface networkInterface : interfaces)
-                udpSocket.joinGroup(group, networkInterface);
-
-            DatagramPacket received = new DatagramPacket(new byte[132], 132);
-
-            while (true) {
-                try {
-                    udpSocket.receive(received);
-                    Host host = PacketUtils.deencapsulate(received);
-
-                    if (host.getPacketType() == Host.PacketTypes.FORGETME) {
-                        runOnUiThread(() -> adapter.forgetDevice(host));
-                        continue;
-                    }
-                    runOnUiThread(() -> adapter.addDevice(host));
-
-                } catch (SocketException e) {
-                    Log.w("Socket destroyed", "Discovery was cancelled");
-                    break;
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    break;
+            synchronized (subbedInterfaces) {
+                for (NetworkInterface networkInterface : Host.getActiveInterfaces()) {
+                    udpSocket.joinGroup(group, networkInterface);
+                    subbedInterfaces.add(networkInterface);
                 }
             }
+        } catch (IOException ignored) {}
+    }
+    private void listenUDP() {
+        updateInterfaces();
 
-        } catch (Exception e) {
-            e.printStackTrace();
+        DatagramPacket received = new DatagramPacket(new byte[132], 132);
+
+        while (true) {
+            try {
+                udpSocket.receive(received);
+                Host host = PacketUtils.deencapsulate(received);
+
+                if (host.getPacketType() == Host.PacketTypes.FORGETME) {
+                    runOnUiThread(() -> adapter.forgetDevice(host));
+                    continue;
+                }
+                runOnUiThread(() -> adapter.addDevice(host));
+
+            } catch (SocketException e) {
+                Log.w("Socket destroyed", "Discovery was cancelled");
+                break;
+            } catch (Exception e) {
+                e.printStackTrace();
+                break;
+            }
         }
     }
 
-    private void socketTimeout() {
-        // multicastLock.release();
-        if (udpSocket != null)
-            udpSocket.close();
-        runOnUiThread(() -> {
-            status.setText(getResources().getQuantityString(R.plurals.number_of_devices, adapter.getItemCount(), adapter.getItemCount() ));
-            pBar.setVisibility(View.GONE);
-            retryButton.setVisibility(View.VISIBLE);
-        });
-    }
     private void openFile() {
         open = true;
         mGetContent.launch("*/*");
     }
     private void postOpenFile() {
         open = false;
-        searchForDevices();
 
         selectedFile.setText(FileMappings.getFilenameFromURI(UploadActivity.this, selectedUri)
                 /*+ " " + getContentResolver().getType(selectedUri)*/);
         selectedFile.setCompoundDrawablesRelativeWithIntrinsicBounds(FileMappings.getIconFromUri(UploadActivity.this, selectedUri), null, null, null);
-        adapter.setFileToSend(selectedUri);
     }
 
-    public static void connect(Context ctx, Uri toSend, InetAddress address, int port) {
-        WorkManager wm = WorkManager.getInstance(ctx);
+    public void connect(Host host) {
+        WorkManager wm = WorkManager.getInstance(UploadActivity.this);
 
         Data.Builder data = new Data.Builder();
-        data.putString("targetHost", address.getHostAddress());
-        data.putInt("port", port);
-        data.putString("file", toSend.toString());
+        data.putString("targetHost", host.getIp().getHostAddress());
+        data.putInt("port", host.getPort());
+        data.putString("file", selectedUri.toString());
 
-        String uniqueWorkID = toSend.toString().concat(address.toString());
+        String uniqueWorkID = selectedUri.toString().concat(host.getIp().toString());
 
         OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileUploadWorker.class)
                 .addTag(uniqueWorkID)
@@ -244,5 +237,7 @@ public class UploadActivity extends AppCompatActivity {
                 .build();
 
         wm.enqueueUniqueWork(uniqueWorkID, ExistingWorkPolicy.KEEP, downloadWorkRequest);
+
+        Snackbar.make(findViewById(R.id.coordinatorLayout), getString(R.string.sending_file, selectedFile.getText()), Snackbar.LENGTH_SHORT).show();
     }
 }

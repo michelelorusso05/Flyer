@@ -33,4 +33,6 @@
     <string name="no_interfaces_available_dialog_desc">Flyer può mandare file ai dispostivi connessi alla tua stessa rete. Connettiti ad una rete WiFi oppure attiva l\'hotspot per continuare.</string>
     <string name="open_wifi_settings">Impostazioni WiFi</string>
     <string name="open_hotspot_settings">Impostazioni hotspot</string>
+    <string name="receiving_file">Ricezione file…</string>
+    <string name="sending_file">Invio di \"%1$s\"…</string>
 </resources>

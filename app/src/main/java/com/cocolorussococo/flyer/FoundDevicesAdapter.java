@@ -18,9 +18,9 @@ import java.util.TimerTask;
 public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapter.ViewHolder> {
     private final ArrayList<Host> foundHosts;
     private final Activity context;
-    private Uri fileToSend;
     private Timer cleanupTimer;
     private boolean isScheduled;
+    private final onDeviceSelectedCallback callback;
 
     private final static int[] DEVICE_TYPES = {
             R.drawable.outline_smartphone_24,
@@ -28,10 +28,16 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
             R.drawable.baseline_windows_24
     };
 
-    public FoundDevicesAdapter(Activity ctx) {
+    public interface onDeviceSelectedCallback {
+        void run(Host selected);
+    }
+
+    public FoundDevicesAdapter(Activity ctx, onDeviceSelectedCallback _callback) {
         context = ctx;
         foundHosts = new ArrayList<>();
         cleanupTimer = new Timer();
+
+        callback = _callback;
 
         restart();
     }
@@ -50,10 +56,7 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
         Host host = foundHosts.get(pos);
         holder.deviceName.setText(host.getName());
         holder.deviceIcon.setImageResource(DEVICE_TYPES[host.getDeviceType().ordinal()]);
-        holder.clickableLayout.setOnClickListener((v) -> {
-            if (fileToSend == null) throw new IllegalStateException("By the time the user will be able to click buttons, Uri should have already been set.");
-            UploadActivity.connect(context, fileToSend, foundHosts.get(pos).getIp(), foundHosts.get(pos).getPort());
-        });
+        holder.clickableLayout.setOnClickListener((v) -> callback.run(foundHosts.get(pos)));
     }
     @Override
     public int getItemCount() {
@@ -78,9 +81,6 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
         foundHosts.remove(index);
         notifyItemRemoved(index);
     }
-    public void setFileToSend(Uri uri) {
-        fileToSend = uri;
-    }
     public boolean hasAlreadyBeenDiscovered(Host host) {
         return foundHosts.contains(host);
     }
@@ -104,11 +104,11 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
             public void run() {
                 for (int i = foundHosts.size() - 1; i >= 0; i--) {
                     Host h = foundHosts.get(i);
-                    if (System.currentTimeMillis() - h.getLastUpdated() > 3000)
+                    if (System.currentTimeMillis() - h.getLastUpdated() > 4000)
                         context.runOnUiThread(() -> forgetDevice(h));
                 }
             }
-        }, 0, 3000);
+        }, 0, 4000);
     }
     static class ViewHolder extends RecyclerView.ViewHolder {
         private final TextView deviceName;

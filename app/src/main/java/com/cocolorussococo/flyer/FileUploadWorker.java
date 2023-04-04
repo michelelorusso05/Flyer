@@ -73,6 +73,7 @@ public class FileUploadWorker extends Worker {
         }
     }
 
+
     @SuppressLint("RestrictedApi")
     public FileUploadWorker(@NonNull Context ctx, @NonNull WorkerParameters workerParams) {
         super(ctx, workerParams);
@@ -119,6 +120,8 @@ public class FileUploadWorker extends Worker {
     public Result doWork() {
         try {
             socket = new Socket(target, port);
+            // Reliability and throughput
+            socket.setTrafficClass(0x04 | 0x08);
             InputStream fileStream = ctx.getContentResolver().openInputStream(file);
 
             int bytes;

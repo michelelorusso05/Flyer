@@ -126,6 +126,7 @@ public class MainActivity extends AppCompatActivity {
                 .isIgnoringBatteryOptimizations("com.cocolorussococo.flyer");
         findViewById(R.id.dozeModeWarning).setVisibility(allowInDozeMode ? View.GONE : View.VISIBLE);
     }
+
     private void launchActivityChecked(Class<?> cls) {
         if (hasValidInterfaces()) {
             startActivity(new Intent(this, cls));
@@ -136,9 +137,7 @@ public class MainActivity extends AppCompatActivity {
                     .setTitle(R.string.no_interfaces_available_dialog_title)
                     .setMessage(R.string.no_interfaces_available_dialog_desc)
                     // Open WiFi settings
-                    .setPositiveButton(R.string.open_wifi_settings, (dialog, which) -> {
-                        startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
-                    })
+                    .setPositiveButton(R.string.open_wifi_settings, (dialog, which) -> startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS)))
                     // Open Router&Tethering settings
                     .setNegativeButton(R.string.open_hotspot_settings, (dialog, which) -> {
                         Intent tetherSettings = new Intent();

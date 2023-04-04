@@ -32,5 +32,7 @@
     <string name="no_interfaces_available_dialog_desc">Flyer can send files to any device connected to your local network. Connect to a WiFi or enable the hotspot to continue.</string>
     <string name="open_wifi_settings">WiFi settings</string>
     <string name="open_hotspot_settings">Hotspot settings</string>
+    <string name="receiving_file">Receiving file…</string>
+    <string name="sending_file">Sending \"%1$s\"…</string>
 
 </resources>

@@ -6,6 +6,38 @@
     android:layout_height="match_parent"
     tools:context=".UploadActivity">
 
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:id="@+id/coordinatorLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            app:layout_dodgeInsetEdges="none">
+
+            <TextView
+                android:id="@+id/connectionHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="32dp"
+                android:layout_marginEnd="32dp"
+                android:layout_marginBottom="16dp"
+                android:drawablePadding="8dp"
+                android:foregroundGravity="bottom"
+                android:text="@string/connection_upload_hint"
+                app:drawableStartCompat="@drawable/outline_wifi_24"
+                app:drawableTint="?attr/textColor" />
+
+        </LinearLayout>
+
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
     <TextView
         android:id="@+id/selectedFile"
         android:layout_width="0dp"
@@ -16,7 +48,6 @@
         android:drawablePadding="4dp"
         android:ellipsize="end"
         android:maxLines="1"
-        android:text="TextView"
         android:textSize="16sp"
         app:drawableStartCompat="@drawable/outline_powerpoint"
         app:layout_constraintEnd_toEndOf="parent"
@@ -61,60 +92,10 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="16dp"
-        android:layout_marginBottom="16dp"
-        app:layout_constraintBottom_toTopOf="@+id/connectionHint"
+        app:layout_constraintBottom_toTopOf="@+id/coordinatorLayout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/status" />
-
-    <TextView
-        android:id="@+id/connectionHint"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="32dp"
-        android:layout_marginEnd="32dp"
-        android:layout_marginBottom="16dp"
-        android:drawablePadding="8dp"
-        android:foregroundGravity="bottom"
-        android:text="@string/connection_upload_hint"
-        app:drawableStartCompat="@drawable/outline_wifi_24"
-        app:drawableTint="?attr/textColor"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <TextView
-        android:id="@+id/hotspotWarning"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="32dp"
-        android:layout_marginEnd="32dp"
-        android:layout_marginBottom="16dp"
-        android:drawablePadding="8dp"
-        android:foregroundGravity="bottom"
-        android:text="@string/multiple_connections_warning"
-        android:visibility="gone"
-        app:drawableStartCompat="@drawable/outline_wifi_tethering_24"
-        app:drawableTint="?attr/textColor"
-        app:layout_constraintBottom_toTopOf="@+id/connectionHint"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <ImageButton
-        android:id="@+id/retryButton"
-        style="@android:style/Widget.Material.ImageButton"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginEnd="8dp"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@id/status"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/status"
-        app:srcCompat="@drawable/outline_retry_24"
-        app:tint="?attr/textColor" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

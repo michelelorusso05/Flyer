@@ -12,7 +12,7 @@
         android:id="@+id/animation"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintBottom_toTopOf="@+id/connectionHint"
+        app:layout_constraintBottom_toTopOf="@id/coordinatorLayout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
@@ -39,41 +39,51 @@
         android:ellipsize="end"
         android:gravity="center"
         android:maxLines="2"
-        android:text="Telefono di Michele"
         app:layout_constraintEnd_toEndOf="@+id/deviceType"
         app:layout_constraintStart_toStartOf="@+id/deviceType"
         app:layout_constraintTop_toBottomOf="@+id/deviceType" />
 
-    <TextView
-        android:id="@+id/connectionHint"
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:id="@+id/coordinatorLayout"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="32dp"
-        android:layout_marginEnd="32dp"
-        android:layout_marginBottom="16dp"
-        android:drawablePadding="8dp"
-        android:foregroundGravity="bottom"
-        android:text="@string/upload_label"
-        app:drawableStartCompat="@drawable/outline_wifi_24"
-        app:drawableTint="?attr/textColor"
-        app:layout_constraintBottom_toTopOf="@+id/folderHint"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <TextView
-        android:id="@+id/folderHint"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="32dp"
-        android:layout_marginEnd="32dp"
-        android:layout_marginBottom="16dp"
-        android:drawablePadding="8dp"
-        android:foregroundGravity="bottom"
-        android:text="@string/upload_destination_label"
-        app:drawableStartCompat="@drawable/outline_folder_open_24"
-        app:drawableTint="?attr/textColor"
+        android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/connectionHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="32dp"
+                android:layout_marginEnd="32dp"
+                android:layout_marginBottom="16dp"
+                android:drawablePadding="8dp"
+                android:foregroundGravity="bottom"
+                android:text="@string/upload_label"
+                app:drawableStartCompat="@drawable/outline_wifi_24"
+                app:drawableTint="?attr/textColor" />
+
+            <TextView
+                android:id="@+id/folderHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="32dp"
+                android:layout_marginEnd="32dp"
+                android:layout_marginBottom="16dp"
+                android:drawablePadding="8dp"
+                android:foregroundGravity="bottom"
+                android:text="@string/upload_destination_label"
+                app:drawableStartCompat="@drawable/outline_folder_open_24"
+                app:drawableTint="?attr/textColor" />
+        </LinearLayout>
+
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

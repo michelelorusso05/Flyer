@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 import com.cocolorussococo.flyer.Host.*;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -29,10 +30,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class DownloadActivity extends AppCompatActivity {
 
-    ArrayList<MulticastSocket> sockets;
-    static Timer beaconTimer;
-    static ServerSocket serverSocket;
-    static Socket socket;
+    final ArrayList<MulticastSocket> sockets = new ArrayList<>();
+    Timer beaconTimer;
+    ServerSocket serverSocket;
+    NetworkUpdateCallback callback;
+    static volatile Socket socket;
     static AtomicInteger currentPort = new AtomicInteger(0);
     static InetSocketAddress group;
 
@@ -65,6 +67,14 @@ public class DownloadActivity extends AppCompatActivity {
             startBeacon();
             initSocket();
         }
+
+        callback = new NetworkUpdateCallback(this);
+
+        callback.register(() -> {
+            try {
+                updateInterfaces();
+            } catch (IOException ignored) {}
+        });
     }
 
     @Override
@@ -88,27 +98,39 @@ public class DownloadActivity extends AppCompatActivity {
             final DatagramPacket datagramPacket = new DatagramPacket(packet, packet.length, group);
 
             new Thread(() -> {
-                for (MulticastSocket socket : sockets) {
-                    try {
-                        socket.send(datagramPacket);
-                    } catch (IOException ignored) {}
-                    socket.close();
-                }
+                try {
+                    sendMessage(datagramPacket);
+                } catch (IOException ignored) {}
             }).start();
         }
         try {
             serverSocket.close();
             serverSocket = null;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        } catch (IOException ignored) {}
+
+        if (callback != null)
+            callback.unregister();
+
+        callback = null;
     }
 
     @Override
     protected void onRestart() {
         super.onRestart();
+
+        if (isChangingConfigurations()) return;
+
         startBeacon();
         initSocket();
+
+        if (callback == null) {
+            callback = new NetworkUpdateCallback(this);
+            callback.register(() -> {
+                try {
+                    updateInterfaces();
+                } catch (IOException ignored) {}
+            });
+        }
     }
 
     private void initSocket() {
@@ -138,7 +160,7 @@ public class DownloadActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
-    public static Socket consumeSocket() {
+    public synchronized static Socket consumeSocket() {
         Socket s = socket;
         socket = null;
         return s;
@@ -151,19 +173,37 @@ public class DownloadActivity extends AppCompatActivity {
                 .build();
 
         wm.enqueue(downloadWorkRequest);
+
+        Snackbar.make(findViewById(R.id.coordinatorLayout), R.string.receiving_file, Snackbar.LENGTH_SHORT).show();
+    }
+    private synchronized void sendMessage(DatagramPacket packet) throws IOException {
+        synchronized (sockets) {
+            for (MulticastSocket multicastSocket : sockets)
+                multicastSocket.send(packet);
+        }
+    }
+    private synchronized void updateInterfaces() throws IOException {
+        Log.d("Update", "Interfaces refreshed");
+        synchronized (sockets) {
+            sockets.clear();
+
+            ArrayList<NetworkInterface> interfaces = Host.getActiveInterfaces();
+            for (NetworkInterface networkInterface : interfaces) {
+                MulticastSocket socket = new MulticastSocket();
+                socket.setNetworkInterface(networkInterface);
+                // Don't leave the local network
+                socket.setTimeToLive(1);
+                // Reliability
+                socket.setTrafficClass(0x04);
+                sockets.add(socket);
+            }
+        }
     }
     private void startBeacon() {
         Log.d("Socket", "Started");
         // Create UDP station
         try {
-            ArrayList<NetworkInterface> interfaces = Host.getActiveInterfaces();
-            sockets = new ArrayList<>(interfaces.size());
-            for (NetworkInterface networkInterface : interfaces) {
-                MulticastSocket socket = new MulticastSocket();
-                socket.setNetworkInterface(networkInterface);
-                socket.setTimeToLive(1);
-                sockets.add(socket);
-            }
+            updateInterfaces();
 
             byte[] send = PacketUtils.encapsulate(
                     currentPort.get(),
