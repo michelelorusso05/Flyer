@@ -210,9 +210,7 @@ public class FileMappings {
         for (String type : types)
             mappings.put(type, icon);
     }
-    public static Drawable getIconFromUri(Context context, Uri uri) {
-        String mime = context.getContentResolver().getType(uri);
-
+    public static Drawable getIconFromMimeType(Context context, String mime) {
         Integer found;
         // Specific search
         found = mappings.get(mime);
@@ -226,6 +224,11 @@ public class FileMappings {
             found = R.drawable.outline_binary_file;
         }
         return AppCompatResources.getDrawable(context, found);
+    }
+    public static Drawable getIconFromUri(Context context, Uri uri) {
+        String mime = context.getContentResolver().getType(uri);
+
+        return getIconFromMimeType(context, mime);
     }
 
 

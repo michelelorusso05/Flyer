@@ -13,4 +13,5 @@
 
     <attr name="itemColor" />
     <attr name="textColor" />
+    <attr name="accentColor" />
 </resources>

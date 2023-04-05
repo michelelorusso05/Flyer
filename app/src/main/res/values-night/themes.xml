@@ -19,6 +19,7 @@
         <!--item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item-->
         <item name="itemColor">@color/dark_liver</item>
         <item name="textColor">@color/whiter_green</item>
+        <item name="accentColor">#50d8d7</item>
 
 
         <item name="android:navigationBarColor">@color/blacker_green</item>

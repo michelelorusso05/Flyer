@@ -22,6 +22,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.work.Data;
 import androidx.work.ForegroundInfo;
 import androidx.work.WorkManager;
 import androidx.work.Worker;
@@ -112,10 +113,12 @@ public class FileDownloadWorker extends Worker {
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @SuppressLint("MissingPermission")
+    @SuppressLint({"MissingPermission", "RestrictedApi"})
     @NonNull
     @Override
     public Result doWork() {
+        Data.Builder progressData = new Data.Builder();
+
         Uri toSave = null;
         try {
             socket.setSoTimeout(5000);
@@ -134,6 +137,12 @@ public class FileDownloadWorker extends Worker {
 
             String filename = new String(filenameBuffer);
             String mimeType = new String(mimetypeBuffer);
+
+            progressData
+                    .put("filename", filename)
+                    .put("mimeType", mimeType);
+
+            setProgressAsync(progressData.build());
 
             PendingIntent cancelIntent = WorkManager.getInstance(ctx).createCancelPendingIntent(getId());
             builder
@@ -190,6 +199,10 @@ public class FileDownloadWorker extends Worker {
                 if (System.currentTimeMillis() - elapsedMillis < 500) continue;
                 elapsedMillis = System.currentTimeMillis();
 
+                progressData.putInt("percentage", percentage);
+
+                setProgressAsync(progressData.build());
+
                 if (shouldUpdateNotification) {
                     builder
                             .setContentText(percentage + "% · " + speed)
@@ -204,12 +217,14 @@ public class FileDownloadWorker extends Worker {
             fileOutputStream.close();
 
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.setDataAndType(toSave, mimeType);
 
-            Intent chooser = Intent.createChooser(intent, ctx.getText(R.string.file_chooser_label));
-            PendingIntent pendingIntent = PendingIntent.getActivity(ctx, id, chooser,
+            // Intent chooser = Intent.createChooser(intent, ctx.getText(R.string.file_chooser_label));
+            PendingIntent pendingIntent = PendingIntent.getActivity(ctx, id, intent,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+            progressData.putString("fileURI", toSave.toString());
 
             builder
                     .setOngoing(false)
@@ -241,8 +256,11 @@ public class FileDownloadWorker extends Worker {
             if (hasNotificationPermissions)
                 notificationManager.notify(id + 1, builder.build());
 
+            progressData
+                    .putBoolean("succeded", false);
+
             onDownloadFailed(toSave);
-            return Result.failure();
+            return Result.failure(progressData.build());
         } catch (IOException e) {
             e.printStackTrace();
             builder
@@ -256,10 +274,18 @@ public class FileDownloadWorker extends Worker {
             if (hasNotificationPermissions)
                 notificationManager.notify(id + 1, builder.build());
 
+            progressData
+                    .putBoolean("succeded", false);
+
             onDownloadFailed(toSave);
-            return Result.failure();
+            return Result.failure(progressData.build());
         }
-        return Result.success();
+
+        progressData
+                .putInt("percentage", 100)
+                .putBoolean("succeded", true);
+
+        return Result.success(progressData.build());
     }
 
     private void onDownloadFailed(@Nullable Uri corruptedFile) {
