@@ -51,6 +51,7 @@ public class FileDownloadWorker extends Worker {
     ListenableFuture<Void> l;
     final long startTime;
     final Socket socket;
+    final Data.Builder progressData;
 
     @SuppressLint("MissingPermission")
     @Override
@@ -110,15 +111,14 @@ public class FileDownloadWorker extends Worker {
 
         startTime = builder.getWhenIfShowing();
         socket = DownloadActivity.consumeSocket();
+
+        progressData = new Data.Builder();
     }
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     @SuppressLint({"MissingPermission", "RestrictedApi"})
     @NonNull
     @Override
     public Result doWork() {
-        Data.Builder progressData = new Data.Builder();
-
         Uri toSave = null;
         try {
             socket.setSoTimeout(5000);
@@ -127,18 +127,15 @@ public class FileDownloadWorker extends Worker {
 
             int bytes;
 
-            int filenameLength = dataInputStream.readByte();
-            byte[] filenameBuffer = new byte[filenameLength];
-            dataInputStream.read(filenameBuffer);
+            byte version = dataInputStream.readByte();
+            byte typeOfContent = dataInputStream.readByte();
 
-            int mimetypeLength = dataInputStream.readByte();
-            byte[] mimetypeBuffer = new byte[mimetypeLength];
-            dataInputStream.read(mimetypeBuffer);
-
-            String filename = new String(filenameBuffer);
-            String mimeType = new String(mimetypeBuffer);
+            String transmitterName = readStringFromStream(dataInputStream);
+            String filename = readStringFromStream(dataInputStream);
+            String mimeType = readStringFromStream(dataInputStream);
 
             progressData
+                    .put("transmitterName", transmitterName)
                     .put("filename", filename)
                     .put("mimeType", mimeType);
 
@@ -220,7 +217,6 @@ public class FileDownloadWorker extends Worker {
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.setDataAndType(toSave, mimeType);
 
-            // Intent chooser = Intent.createChooser(intent, ctx.getText(R.string.file_chooser_label));
             PendingIntent pendingIntent = PendingIntent.getActivity(ctx, id, intent,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
@@ -256,9 +252,6 @@ public class FileDownloadWorker extends Worker {
             if (hasNotificationPermissions)
                 notificationManager.notify(id + 1, builder.build());
 
-            progressData
-                    .putBoolean("succeded", false);
-
             onDownloadFailed(toSave);
             return Result.failure(progressData.build());
         } catch (IOException e) {
@@ -274,16 +267,12 @@ public class FileDownloadWorker extends Worker {
             if (hasNotificationPermissions)
                 notificationManager.notify(id + 1, builder.build());
 
-            progressData
-                    .putBoolean("succeded", false);
-
             onDownloadFailed(toSave);
             return Result.failure(progressData.build());
         }
 
         progressData
-                .putInt("percentage", 100)
-                .putBoolean("succeded", true);
+                .putInt("percentage", 100);
 
         return Result.success(progressData.build());
     }
@@ -300,6 +289,14 @@ public class FileDownloadWorker extends Worker {
         }
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private static String readStringFromStream(DataInputStream stream) throws IOException {
+        int l = stream.readByte();
+        byte[] buf = new byte[l];
+        stream.read(buf);
+
+        return new String(buf);
+    }
     private static @NonNull Pair<OutputStream, Uri> openOutputStreamForDownloadedFile(Context ctx, String filename, String mimetype) {
         try {
             Uri uri;

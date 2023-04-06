@@ -1,25 +1,15 @@
 package com.cocolorussococo.flyer;
 
 
-import android.annotation.SuppressLint;
-import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.graphics.Color;
 import android.graphics.drawable.AnimatedVectorDrawable;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.CountDownTimer;
 import android.util.Log;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.LiveData;
@@ -31,7 +21,6 @@ import androidx.work.WorkManager;
 
 import com.cocolorussococo.flyer.Host.DeviceTypes;
 import com.cocolorussococo.flyer.Host.PacketTypes;
-import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.android.material.snackbar.Snackbar;
 
 import java.io.IOException;
@@ -59,8 +48,7 @@ public class DownloadActivity extends AppCompatActivity {
     static AtomicInteger currentPort = new AtomicInteger(0);
     static InetSocketAddress group;
 
-    // Last started worker, which is the one authorized to post updates on the main UI
-    UUID broadcastingBackgroundWorker;
+    SnackbarBroadcastManager snackbarDispatcher = new SnackbarBroadcastManager();
 
     static {
         try {
@@ -193,8 +181,7 @@ public class DownloadActivity extends AppCompatActivity {
         final WorkManager wm = WorkManager.getInstance(DownloadActivity.this);
         String id = socket.getInetAddress().getHostAddress() + socket.getPort();
         UUID uuid = UUID.randomUUID();
-
-        broadcastingBackgroundWorker = uuid;
+        snackbarDispatcher.enqueue(uuid);
 
         OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileDownloadWorker.class)
                 .setId(uuid)
@@ -205,101 +192,59 @@ public class DownloadActivity extends AppCompatActivity {
 
         runOnUiThread(() -> {
             Snackbar s = Snackbar.make(findViewById(R.id.coordinatorLayout), "", Snackbar.LENGTH_INDEFINITE);
-            @SuppressLint("InflateParams") View customView = getLayoutInflater().inflate(R.layout.operation_preview, null);
-            s.getView().setBackgroundColor(Color.TRANSPARENT);
-
-            Snackbar.SnackbarLayout snackbarLayout = (Snackbar.SnackbarLayout) s.getView();
-            snackbarLayout.setPadding(0, 0, 0, 0);
-
-            TextView filenameView = customView.findViewById(R.id.filenameView);
-            TextView statusView = customView.findViewById(R.id.statusView);
-            ImageView iconView = customView.findViewById(R.id.statusIcon);
-            ImageView fileIcon = customView.findViewById(R.id.fileIcon);
-
-            CircularProgressIndicator progressBar = customView.findViewById(R.id.transferProgress);
-            progressBar.setInterpolator(new DecelerateInterpolator());
-
-            snackbarLayout.addView(customView, 0);
+            FileOperationPreview operationPreview = new FileOperationPreview(this, s, FileOperationPreview.Mode.RECEIVER);
 
             LiveData<WorkInfo> workInfoLiveData = wm.getWorkInfoByIdLiveData(uuid);
 
             workInfoLiveData.observe(DownloadActivity.this, workInfo -> {
-                Data data = workInfo.getProgress();
-
                 boolean hasFinished = workInfo.getState().isFinished();
 
-                if (hasFinished) {
-                    data = workInfo.getOutputData();
-                    System.out.println(data.getKeyValueMap());
-                }
+                Data data = hasFinished ? workInfo.getOutputData() : workInfo.getProgress();
 
                 String filename = data.getString("filename");
                 String mimeType = data.getString("mimeType");
-                if (filename != null) {
-                    filenameView.setText(filename);
-                    statusView.setText(R.string.receiving_file);
+                String transmitter = data.getString("transmitterName");
 
-                    fileIcon.setImageDrawable(FileMappings.getIconFromMimeType(getApplicationContext(), mimeType));
+                // Empty callbacks are to be ignored
+                if (!data.getKeyValueMap().isEmpty()) {
+                    if (!operationPreview.getSet()) {
+                        operationPreview.setInfo(filename, mimeType, transmitter);
+                    }
 
                     int progress = data.getInt("percentage", 0);
 
-                    progressBar.setIndeterminate(false);
-                    progressBar.setMax(100);
-                    progressBar.setProgressCompat(progress, true);
+                    operationPreview.updateProgress(progress);
 
-                    if (hasFinished) {
-                        boolean succeded = data.getBoolean("succeded", true);
-
-                        if (succeded) {
-                            progressBar.setProgressCompat(100, true);
-                            progressBar.setIndicatorColor(0xFF45CF40);
-
-                            iconView.setImageResource(R.drawable.round_check_24);
-                            iconView.setColorFilter(0xFF45CF40);
-                            statusView.setText(R.string.touch_to_open);
-
-                            String savedFileURI = data.getString("fileURI");
-                            Uri uri = Uri.parse(savedFileURI);
-
-                            Intent intent = new Intent(Intent.ACTION_VIEW);
-                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            intent.setDataAndType(uri, mimeType);
-
-                            View clickableBackground = customView.findViewById(R.id.clickableView);
-
-                            clickableBackground.setClickable(true);
-                            clickableBackground.setFocusable(true);
-                            clickableBackground.setOnClickListener(v -> {
-                                s.dismiss();
-                                try {
-                                    startActivity(intent);
-                                } catch (ActivityNotFoundException e) {
-                                    Snackbar.make(findViewById(R.id.coordinatorLayout), "Non ci sono app per questo tipo di contenuto", Snackbar.LENGTH_SHORT).show();
-                                }
-                            });
-                        }
-                        else {
-                            progressBar.setIndicatorColor(0xFFC92647);
-
-                            iconView.setImageResource(R.drawable.round_error_24);
-                            iconView.setColorFilter(0xFFC92647);
-                            statusView.setText(R.string.transfer_cancelled);
-                        }
-
-                        /*
-                        new CountDownTimer(3000, 3000) {
-                            @Override
-                            public void onTick(long millisUntilFinished) {}
-                            @Override
-                            public void onFinish() {
-                                runOnUiThread(s::dismiss);
-                            }
-                        }.start();
-                         */
-                    }
-
-                    if (!s.isShown() && broadcastingBackgroundWorker == uuid)
+                    if (!s.isShown() && snackbarDispatcher.canShow(uuid))
                         s.show();
+                }
+
+                // Cancelled operations have an empty callback, so handle it here
+                if (hasFinished) {
+                    WorkInfo.State state = workInfo.getState();
+
+                    if (state == WorkInfo.State.SUCCEEDED) {
+                        operationPreview.setSucceeded(R.string.touch_to_open);
+
+                        String savedFileURI = data.getString("fileURI");
+                        Uri uri = Uri.parse(savedFileURI);
+
+                        Intent intent = new Intent(Intent.ACTION_VIEW);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        intent.setDataAndType(uri, mimeType);
+
+                        operationPreview.setOnClick(v -> {
+                            s.dismiss();
+                            try {
+                                startActivity(intent);
+                            } catch (ActivityNotFoundException e) {
+                                Snackbar.make(findViewById(R.id.coordinatorLayout), "Non ci sono app per questo tipo di contenuto", Snackbar.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                    else if (state == WorkInfo.State.FAILED || state == WorkInfo.State.CANCELLED) {
+                        operationPreview.setFailed();
+                    }
                 }
             });
 
@@ -308,9 +253,7 @@ public class DownloadActivity extends AppCompatActivity {
                 public void onDismissed(Snackbar transientBottomBar, int event) {
                     super.onDismissed(transientBottomBar, event);
 
-                    if (broadcastingBackgroundWorker == uuid) {
-                        broadcastingBackgroundWorker = null;
-                    }
+                    snackbarDispatcher.yield(uuid);
                     workInfoLiveData.removeObservers(DownloadActivity.this);
                 }
             });

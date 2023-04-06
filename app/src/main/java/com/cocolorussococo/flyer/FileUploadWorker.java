@@ -33,6 +33,8 @@ import java.util.TimerTask;
 
 public class FileUploadWorker extends Worker {
 
+    private static final byte FLOW_PROTOCOL_VERSION = 0x01;
+
     private final int port;
     private final String target;
     private final Uri file;
@@ -46,6 +48,7 @@ public class FileUploadWorker extends Worker {
     final long startTime;
     final String filename;
     Socket socket;
+    final Data.Builder progressData;
 
     @Override
     public void onStopped() {
@@ -112,6 +115,8 @@ public class FileUploadWorker extends Worker {
 
         startTime = builder.getWhenIfShowing();
         sendNotification();
+
+        progressData = new Data.Builder();
     }
 
     @SuppressLint("MissingPermission")
@@ -135,17 +140,22 @@ public class FileUploadWorker extends Worker {
                     .setContentTitle(filename)
                     .addAction(0, ctx.getString(R.string.transfer_cancel), cancelIntent);
 
-            byte[] filenameStringBytes = filename.getBytes();
-            byte[] mimetypeStringBytes = ctx.getContentResolver().getType(file).getBytes();
+            // Write version
+            dataOutputStream.writeByte(FLOW_PROTOCOL_VERSION);
+            // Write data type (0 for normal content)
+            dataOutputStream.writeByte(0x00);
 
-            // Write filename size
-            dataOutputStream.writeByte(filenameStringBytes.length);
+            // Write hostname
+            writeStringToStream(dataOutputStream, Host.getHostname(ctx));
             // Write filename
-            dataOutputStream.write(filenameStringBytes);
-            // Write mimetype length
-            dataOutputStream.writeByte(mimetypeStringBytes.length);
+            writeStringToStream(dataOutputStream, filename);
             // Write mimetype
-            dataOutputStream.write(mimetypeStringBytes);
+            writeStringToStream(dataOutputStream, ctx.getContentResolver().getType(file));
+
+            progressData
+                    .putBoolean("started", true);
+
+            setProgressAsync(progressData.build());
 
             final long total = FileMappings.getSizeFromURI(ctx, file);
             long written = 0;
@@ -202,6 +212,10 @@ public class FileUploadWorker extends Worker {
                 if (System.currentTimeMillis() - elapsedMillis < 500) continue;
                 elapsedMillis = System.currentTimeMillis();
 
+                progressData.putInt("percentage", percentage);
+
+                setProgressAsync(progressData.build());
+
                 if (shouldUpdateNotification) {
                     builder
                             .setContentText(percentage + "% · " + speed)
@@ -225,7 +239,9 @@ public class FileUploadWorker extends Worker {
             if (hasNotificationPermissions)
                 notificationManager.notify(id + 1, builder.build());
 
-            return Result.success();
+            progressData.putInt("percentage", 100);
+            return Result.success(progressData.build());
+
         } catch (ConnectException e) {
             builder
                     .setProgress(0, 0, false)
@@ -253,7 +269,14 @@ public class FileUploadWorker extends Worker {
             e.printStackTrace();
         }
 
-        return Result.failure();
+        return Result.failure(progressData.build());
+    }
+
+    private static void writeStringToStream(DataOutputStream stream, String toWrite) throws IOException {
+        byte[] buf = toWrite.getBytes();
+
+        stream.writeByte(buf.length);
+        stream.write(buf);
     }
 
     private static class Watchdog {

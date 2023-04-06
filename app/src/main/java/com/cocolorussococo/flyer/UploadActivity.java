@@ -10,8 +10,6 @@ import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
-import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -20,13 +18,13 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-import androidx.core.text.HtmlCompat;
+import androidx.lifecycle.LiveData;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
 import com.google.android.material.snackbar.Snackbar;
@@ -40,6 +38,7 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.UUID;
 
 public class UploadActivity extends AppCompatActivity {
     RecyclerView recyclerView;
@@ -58,6 +57,7 @@ public class UploadActivity extends AppCompatActivity {
     }
     NetworkUpdateCallback callback = new NetworkUpdateCallback(this);
     final ArrayList<NetworkInterface> subbedInterfaces = new ArrayList<>();
+    SnackbarBroadcastManager snackbarDispatcher = new SnackbarBroadcastManager();
 
     ActivityResultLauncher<String> mGetContent = registerForActivityResult(new ActivityResultContracts.GetContent(),
             uri -> {
@@ -221,23 +221,80 @@ public class UploadActivity extends AppCompatActivity {
         selectedFile.setCompoundDrawablesRelativeWithIntrinsicBounds(FileMappings.getIconFromUri(UploadActivity.this, selectedUri), null, null, null);
     }
 
-    public void connect(Host host) {
+    public void connect(@NonNull Host host) {
         WorkManager wm = WorkManager.getInstance(UploadActivity.this);
 
-        Data.Builder data = new Data.Builder();
-        data.putString("targetHost", host.getIp().getHostAddress());
-        data.putInt("port", host.getPort());
-        data.putString("file", selectedUri.toString());
+        Data.Builder workerData = new Data.Builder();
+        workerData.putString("targetHost", host.getIp().getHostAddress());
+        workerData.putInt("port", host.getPort());
+        workerData.putString("file", selectedUri.toString());
 
         String uniqueWorkID = selectedUri.toString().concat(host.getIp().toString());
 
+        UUID uuid = UUID.randomUUID();
+        snackbarDispatcher.enqueue(uuid);
+
         OneTimeWorkRequest downloadWorkRequest = new OneTimeWorkRequest.Builder(FileUploadWorker.class)
+                .setId(uuid)
                 .addTag(uniqueWorkID)
-                .setInputData(data.build())
+                .setInputData(workerData.build())
                 .build();
 
         wm.enqueueUniqueWork(uniqueWorkID, ExistingWorkPolicy.KEEP, downloadWorkRequest);
 
-        Snackbar.make(findViewById(R.id.coordinatorLayout), getString(R.string.sending_file, selectedFile.getText()), Snackbar.LENGTH_SHORT).show();
+        runOnUiThread(() -> {
+            Snackbar s = Snackbar.make(findViewById(R.id.coordinatorLayout), "", Snackbar.LENGTH_INDEFINITE);
+            FileOperationPreview operationPreview = new FileOperationPreview(this, s, FileOperationPreview.Mode.SENDER);
+
+            LiveData<WorkInfo> workInfoLiveData = wm.getWorkInfoByIdLiveData(uuid);
+
+            workInfoLiveData.observe(UploadActivity.this, workInfo -> {
+                boolean hasFinished = workInfo.getState().isFinished();
+
+                Data data = hasFinished ? workInfo.getOutputData() : workInfo.getProgress();
+
+                String filename = (String) selectedFile.getText();
+                String mimeType = getContentResolver().getType(selectedUri);
+                String receiver = host.getName();
+
+                // Empty callbacks are to be ignored
+                if (!data.getKeyValueMap().isEmpty()) {
+                    if (!operationPreview.getSet()) {
+                        operationPreview.setInfo(filename, mimeType, receiver);
+                    }
+
+                    int progress = data.getInt("percentage", 0);
+
+                    operationPreview.updateProgress(progress);
+
+                    if (!s.isShown() && snackbarDispatcher.canShow(uuid))
+                        s.show();
+                }
+
+                // Cancelled operations have an empty callback, so handle it here
+                if (hasFinished) {
+                    WorkInfo.State state = workInfo.getState();
+
+                    if (state == WorkInfo.State.SUCCEEDED) {
+                        operationPreview.setSucceeded(R.string.upload_complete);
+                    }
+                    else if (state == WorkInfo.State.FAILED || state == WorkInfo.State.CANCELLED) {
+                        operationPreview.setFailed();
+                    }
+                }
+            });
+
+            s.addCallback(new Snackbar.Callback() {
+                @Override
+                public void onDismissed(Snackbar transientBottomBar, int event) {
+                    super.onDismissed(transientBottomBar, event);
+
+                    snackbarDispatcher.yield(uuid);
+                    workInfoLiveData.removeObservers(UploadActivity.this);
+                }
+            });
+        });
+
+
     }
 }
