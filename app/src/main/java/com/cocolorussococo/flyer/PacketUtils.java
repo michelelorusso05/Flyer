@@ -8,6 +8,10 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 
 public class PacketUtils {
+    // Protocol versions
+    public static final byte DISCOVERY_PROTOCOL_VERSION = 0x01;
+    public static final byte FLOW_PROTOCOL_VERSION = 0x01;
+
     private static final DeviceTypes[] cachedDeviceTypes = DeviceTypes.values();
 
     public static DeviceTypes deviceTypeFromInt(int x) {
@@ -26,34 +30,40 @@ public class PacketUtils {
             PacketTypes packetType,
             String deviceName
     ) {
-        byte[] send = new byte[132];
-        send[0] = (byte) ((port >>> 8) & 255);
-        send[1] = (byte) (port & 255);
-        send[2] = (byte) deviceType.ordinal();
-        send[3] = (byte) packetType.ordinal();
-
-        byte[] name = deviceName.substring(0, Math.min(64, deviceName.length())).getBytes();
-        System.arraycopy(name, 0, send, 4, name.length);
+        byte[] send = new byte[128];
+        // Version (1 byte)
+        send[0] = DISCOVERY_PROTOCOL_VERSION;
+        // Port (2 bytes)
+        send[1] = (byte) ((port >>> 8) & 255);
+        send[2] = (byte) (port & 255);
+        // Device type (1 byte)
+        send[3] = (byte) deviceType.ordinal();
+        // Packet type (1 byte)
+        send[4] = (byte) packetType.ordinal();
+        // Reserved (3 bytes)
+        // Name (120 bytes or 60 chars)
+        byte[] name = deviceName.substring(0, Math.min(60, deviceName.length())).getBytes();
+        System.arraycopy(name, 0, send, 8, name.length);
 
         return send;
     }
     public static void updatePort(byte[] packet, int newPort) {
-        packet[0] = (byte) ((newPort >>> 8) & 255);
-        packet[1] = (byte) (newPort & 255);
+        packet[1] = (byte) ((newPort >>> 8) & 255);
+        packet[2] = (byte) (newPort & 255);
     }
     public static Host deencapsulate(DatagramPacket datagramPacket) throws IllegalArgumentException {
         byte[] packet = datagramPacket.getData();
 
-        if (packet.length != 132) throw new IllegalArgumentException("Packet is not 132 bytes.");
+        if (packet.length != 128) throw new IllegalArgumentException("Packet is not 128 bytes.");
 
-        String name = new String(packet, 4, 128);
-        int port = Byte.toUnsignedInt(packet[1]) + (Byte.toUnsignedInt(packet[0]) << 8);
+        String name = new String(packet, 8, 120);
+        int port = Byte.toUnsignedInt(packet[2]) + (Byte.toUnsignedInt(packet[1]) << 8);
 
-        if (packet[2] < 0 || packet[2] > 2 || packet[3] < 0 || packet[3] > 1)
+        if (packet[3] < 0 || packet[3] > 2 || packet[4] < 0 || packet[4] > 1)
             throw new IllegalArgumentException("Invalid values for type fields.");
 
 
-        return new Host(datagramPacket.getAddress(), name, port, deviceTypeFromInt(packet[2]), packetTypesFromInt(packet[3]));
+        return new Host(datagramPacket.getAddress(), name, port, deviceTypeFromInt(packet[3]), packetTypesFromInt(packet[4]));
     }
 
     public boolean sameNetwork(InetAddress addr1, InetAddress addr2, short mask) {

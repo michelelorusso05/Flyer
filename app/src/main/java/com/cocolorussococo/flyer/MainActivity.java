@@ -2,6 +2,7 @@ package com.cocolorussococo.flyer;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
@@ -10,6 +11,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -20,6 +22,8 @@ import android.os.Environment;
 import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 
@@ -125,6 +129,27 @@ public class MainActivity extends AppCompatActivity {
         boolean allowInDozeMode = getSystemService(PowerManager.class)
                 .isIgnoringBatteryOptimizations("com.cocolorussococo.flyer");
         findViewById(R.id.dozeModeWarning).setVisibility(allowInDozeMode ? View.GONE : View.VISIBLE);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_toolbar, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == R.id.action_debugmenu) {
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("Informazioni di debug")
+                    .setMessage("Build del 06/04/2023\n\nVersione protocollo Discovery: 1.0\nVersione protocollo Flow: 1.0")
+                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                        dialog.dismiss();
+                    })
+                    .show();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private void launchActivityChecked(Class<?> cls) {

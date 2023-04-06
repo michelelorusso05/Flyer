@@ -37,5 +37,6 @@
     <string name="sending_to">To \"%1$s\"</string>
     <string name="receiving_from">From \"%1$s\"</string>
     <string name="touch_to_open">Tap to open</string>
+    <string name="debug_info">Debug info</string>
 
 </resources>

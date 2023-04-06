@@ -186,7 +186,7 @@ public class UploadActivity extends AppCompatActivity {
     private void listenUDP() {
         updateInterfaces();
 
-        DatagramPacket received = new DatagramPacket(new byte[132], 132);
+        DatagramPacket received = new DatagramPacket(new byte[128], 128);
 
         while (true) {
             try {

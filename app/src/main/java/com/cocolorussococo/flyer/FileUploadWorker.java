@@ -32,9 +32,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 public class FileUploadWorker extends Worker {
-
-    private static final byte FLOW_PROTOCOL_VERSION = 0x01;
-
     private final int port;
     private final String target;
     private final Uri file;
@@ -141,7 +138,7 @@ public class FileUploadWorker extends Worker {
                     .addAction(0, ctx.getString(R.string.transfer_cancel), cancelIntent);
 
             // Write version
-            dataOutputStream.writeByte(FLOW_PROTOCOL_VERSION);
+            dataOutputStream.writeByte(PacketUtils.FLOW_PROTOCOL_VERSION);
             // Write data type (0 for normal content)
             dataOutputStream.writeByte(0x00);
 
