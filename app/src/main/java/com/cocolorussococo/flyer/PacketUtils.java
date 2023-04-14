@@ -82,4 +82,10 @@ public class PacketUtils {
 
         return ip;
     }
+
+    public static String ellipsize(String str, int max) {
+        /*if (str.length() <= max) */return str;
+
+        //return str.substring(0, max).concat("…");
+    }
 }

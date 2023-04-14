@@ -25,6 +25,7 @@
     <string name="power_optimization_warning">Allow Flyer to work when screen is turned off</string>
     <string name="power_optimization_title">Disable battery optimizations</string>
     <string name="power_optimization_desc">The Android OS automatically hibernates apps when the screen is turned off in order to save battery.\nHowever, this optimizations will stop any operation in progress.\n\nYou can override this behaviour by going into Settings, switching from \"Apps not optimized\" to \"All\" and deselecting Flyer in the list of apps.</string>
+    <string name="power_optimization_desc_alt">The Android OS automatically hibernates apps when the screen is turned off in order to save battery. However, this optimisations will stop any operation in progress.  You can override this behaviour by going into Settings, tapping on Battery, and disabling optimisations.</string>
     <string name="take_me_to_settings">Take me to settings</string>
     <string name="transfer_cancel">Cancel</string>
     <string name="transfer_cancelled">Transfer cancelled</string>
@@ -32,10 +33,8 @@
     <string name="no_interfaces_available_dialog_desc">Flyer can send files to any device connected to your local network. Connect to a WiFi or enable the hotspot to continue.</string>
     <string name="open_wifi_settings">WiFi settings</string>
     <string name="open_hotspot_settings">Hotspot settings</string>
-    <string name="receiving_file">Receiving \"%1$s\"…</string>
-    <string name="sending_file">Sending \"%1$s\"…</string>
-    <string name="sending_to">To \"%1$s\"</string>
-    <string name="receiving_from">From \"%1$s\"</string>
+    <string name="sending_to">To %1$s</string>
+    <string name="receiving_from">From %1$s</string>
     <string name="touch_to_open">Tap to open</string>
     <string name="debug_info">Debug info</string>
 

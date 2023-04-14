@@ -84,6 +84,8 @@ public class FileUploadWorker extends Worker {
         file = Uri.parse(data.getString("file"));
         id = workerParams.getId().hashCode();
 
+        String receiverName = data.getString("hostname");
+
         this.ctx = ctx;
         hasNotificationPermissions = (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) ||
                 ActivityCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
@@ -98,6 +100,7 @@ public class FileUploadWorker extends Worker {
                 .setSilent(true)
                 .setSmallIcon(R.drawable.outline_file_upload_24)
                 .setContentTitle(filename)
+                .setSubText(ctx.getString(R.string.sending_to, receiverName))
                 .setContentText("0%")
                 .setShowWhen(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)

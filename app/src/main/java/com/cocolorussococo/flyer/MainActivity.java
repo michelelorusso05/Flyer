@@ -1,39 +1,33 @@
 package com.cocolorussococo.flyer;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
-
 import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.content.ContentValues;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.PowerManager;
-import android.provider.MediaStore;
 import android.provider.Settings;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.net.SocketException;
+import java.text.DateFormat;
+import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -93,12 +87,27 @@ public class MainActivity extends AppCompatActivity {
             // startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
             //      Uri.parse("package:com.cocolorussococo.flyer")));
 
+            Intent settingsIntent;
+            int desc;
+
+            // Oppo only provides battery optimizations settings access through the app's details page
+            if (Build.MANUFACTURER.equalsIgnoreCase("OPPO")) {
+                settingsIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.fromParts("package", getPackageName(), null));
+
+                desc = R.string.power_optimization_desc_alt;
+            }
+            else {
+                settingsIntent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                desc = R.string.power_optimization_desc;
+            }
+
             new MaterialAlertDialogBuilder(this)
-                    //.setIcon(R.drawable.outline_notifications_24)
+                    .setIcon(R.drawable.round_battery_saver_24)
                     .setTitle(R.string.power_optimization_title)
-                    .setMessage(R.string.power_optimization_desc)
+                    .setMessage(desc)
                     .setPositiveButton(R.string.take_me_to_settings, (dialog, which) ->
-                            startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)))
+                            startActivity(settingsIntent))
                     .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
                     .show();
         });
@@ -140,12 +149,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == R.id.action_debugmenu) {
+            Date date = new Date(BuildConfig.TIMESTAMP);
+
             new MaterialAlertDialogBuilder(this)
                     .setTitle("Informazioni di debug")
-                    .setMessage("Build del 06/04/2023\n\nVersione protocollo Discovery: 1.0\nVersione protocollo Flow: 1.0")
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                        dialog.dismiss();
-                    })
+                    .setMessage("Build del " + DateFormat.getDateInstance().format(date) + "\n\nVersione protocollo Discovery: 1.0\nVersione protocollo Flow: 1.0")
+                    .setPositiveButton(android.R.string.ok, (dialog, which) -> dialog.dismiss())
                     .show();
             return true;
         }

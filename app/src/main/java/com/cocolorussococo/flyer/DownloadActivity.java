@@ -1,17 +1,21 @@
 package com.cocolorussococo.flyer;
 
 
+import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.drawable.AnimatedVectorDrawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LiveData;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
@@ -60,6 +64,11 @@ public class DownloadActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_download);
+
+        // Check permission failsafe
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                !(ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED))
+            finish();
 
         // Initialize device icon
         boolean isTablet = (getResources().getConfiguration().screenLayout
@@ -230,7 +239,7 @@ public class DownloadActivity extends AppCompatActivity {
                         Uri uri = Uri.parse(savedFileURI);
 
                         Intent intent = new Intent(Intent.ACTION_VIEW);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                         intent.setDataAndType(uri, mimeType);
 
                         operationPreview.setOnClick(v -> {

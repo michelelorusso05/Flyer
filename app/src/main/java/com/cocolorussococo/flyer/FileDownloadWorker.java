@@ -1,5 +1,7 @@
 package com.cocolorussococo.flyer;
 
+import static com.cocolorussococo.flyer.PacketUtils.ellipsize;
+
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Notification;
@@ -9,7 +11,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -22,12 +23,12 @@ import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.FileProvider;
 import androidx.work.Data;
 import androidx.work.ForegroundInfo;
 import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
-import androidx.work.impl.utils.futures.SettableFuture;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -35,7 +36,6 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
@@ -113,6 +113,8 @@ public class FileDownloadWorker extends Worker {
         socket = DownloadActivity.consumeSocket();
 
         progressData = new Data.Builder();
+
+        sendNotification();
     }
 
     @SuppressLint({"MissingPermission", "RestrictedApi"})
@@ -143,8 +145,12 @@ public class FileDownloadWorker extends Worker {
 
             PendingIntent cancelIntent = WorkManager.getInstance(ctx).createCancelPendingIntent(getId());
             builder
-                    .setContentTitle(filename)
+                    .setContentTitle(ellipsize(filename, 25))
                     .addAction(0, ctx.getString(R.string.transfer_cancel), cancelIntent);
+
+            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.M)
+                builder.setSubText(ctx.getString(R.string.receiving_from, ellipsize(transmitterName, 20)));
+
             sendNotification();
 
             Pair<OutputStream, Uri> pair = openOutputStreamForDownloadedFile(ctx, filename, mimeType);
@@ -214,7 +220,7 @@ public class FileDownloadWorker extends Worker {
             fileOutputStream.close();
 
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
             intent.setDataAndType(toSave, mimeType);
 
             PendingIntent pendingIntent = PendingIntent.getActivity(ctx, id, intent,
@@ -301,16 +307,19 @@ public class FileDownloadWorker extends Worker {
         try {
             Uri uri;
             OutputStream outputFile;
+
             // Android 9 and below
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                 String s = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString();
                 File f = new File(s, filename);
-                uri = Uri.fromFile(f);
+                uri = FileProvider.getUriForFile(ctx, "cocolorussococo.flyer.fileprovider", f);
+
+                // uri = Uri.fromFile(f);
                 //noinspection IOStreamConstructor
                 outputFile = new FileOutputStream(f);
             }
             // Android 10 and above
-            else {
+            else{
                 final ContentValues values = new ContentValues();
                 values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
                 // MediaStore likes to override a file's extension when it's set to text/plain,
@@ -319,19 +328,6 @@ public class FileDownloadWorker extends Worker {
                     values.put(MediaStore.MediaColumns.MIME_TYPE, mimetype);
 
                 final Uri contentUri = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
-
-                Cursor c = ctx.getContentResolver().query(
-                        contentUri,
-                        new String[] { MediaStore.Downloads._ID },
-                        MediaStore.Downloads.DISPLAY_NAME + " LIKE ?",
-                        new String[]{ filename },
-                        null
-                );
-
-                if (c != null) {
-                    Log.w("Duplicate file", "File exists");
-                    c.close();
-                }
 
                 uri = ctx.getContentResolver().insert(contentUri, values);
                 outputFile = ctx.getContentResolver().openOutputStream(uri);

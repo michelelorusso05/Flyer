@@ -1,13 +1,10 @@
 package com.cocolorussococo.flyer;
 
-import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
@@ -17,7 +14,6 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LiveData;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -79,11 +75,6 @@ public class UploadActivity extends AppCompatActivity {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_upload);
-
-        // Check permission failsafe
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
-                !(ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED))
-            finish();
 
         recyclerView = findViewById(R.id.foundDevices);
         adapter = new FoundDevicesAdapter(this, this::connect);
@@ -227,6 +218,7 @@ public class UploadActivity extends AppCompatActivity {
         Data.Builder workerData = new Data.Builder();
         workerData.putString("targetHost", host.getIp().getHostAddress());
         workerData.putInt("port", host.getPort());
+        workerData.putString("hostname", host.getName());
         workerData.putString("file", selectedUri.toString());
 
         String uniqueWorkID = selectedUri.toString().concat(host.getIp().toString());
@@ -249,12 +241,15 @@ public class UploadActivity extends AppCompatActivity {
             LiveData<WorkInfo> workInfoLiveData = wm.getWorkInfoByIdLiveData(uuid);
 
             workInfoLiveData.observe(UploadActivity.this, workInfo -> {
+                // Failsafe
+                if (workInfo == null) return;
+
                 boolean hasFinished = workInfo.getState().isFinished();
 
                 Data data = hasFinished ? workInfo.getOutputData() : workInfo.getProgress();
 
                 String filename = (String) selectedFile.getText();
-                String mimeType = getContentResolver().getType(selectedUri);
+                String mimeType = UploadActivity.this.getContentResolver().getType(selectedUri);
                 String receiver = host.getName();
 
                 // Empty callbacks are to be ignored
@@ -277,8 +272,7 @@ public class UploadActivity extends AppCompatActivity {
 
                     if (state == WorkInfo.State.SUCCEEDED) {
                         operationPreview.setSucceeded(R.string.upload_complete);
-                    }
-                    else if (state == WorkInfo.State.FAILED || state == WorkInfo.State.CANCELLED) {
+                    } else if (state == WorkInfo.State.FAILED || state == WorkInfo.State.CANCELLED) {
                         operationPreview.setFailed();
                     }
                 }
