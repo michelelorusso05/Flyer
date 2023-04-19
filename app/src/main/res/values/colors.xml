@@ -8,7 +8,7 @@
     <color name="white_blue">#FFF7FFFF</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="blacker_green">#FF1D1E1F</color>
+    <color name="blacker_green">#FF1B1C1D</color>
     <color name="whiter_green">#FFE6EBE1</color>
 
     <attr name="itemColor" />

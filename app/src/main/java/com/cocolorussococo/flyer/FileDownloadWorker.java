@@ -132,6 +132,9 @@ public class FileDownloadWorker extends Worker {
             byte version = dataInputStream.readByte();
             byte typeOfContent = dataInputStream.readByte();
 
+            if (version != PacketUtils.FLOW_PROTOCOL_VERSION) Log.w("Mismatching Flow version", "Shenanigans might happen");
+            if (typeOfContent != 0) Log.e("Unsupported content type", "Not implemented yet");
+
             String transmitterName = readStringFromStream(dataInputStream);
             String filename = readStringFromStream(dataInputStream);
             String mimeType = readStringFromStream(dataInputStream);
@@ -319,12 +322,14 @@ public class FileDownloadWorker extends Worker {
                 outputFile = new FileOutputStream(f);
             }
             // Android 10 and above
-            else{
+            else {
                 final ContentValues values = new ContentValues();
                 values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
-                // MediaStore likes to override a file's extension when it's set to text/plain,
-                // so we'll not put a MimeType entry for text files
-                if (!mimetype.equals("text/plain"))
+                // If a mimetype is set to text/plain or application/octet-stream when it's actually known
+                // (for example a .apk file with octet-stream) the file extension will be set wrong for multiple
+                // copies of the files (e.g. file.apk -> file.apk (1)) making it unopenable without renaming.
+                // To solve this, straight out avoid setting the mime type if it's a "default" mimetype.
+                if (!mimetype.equals("text/plain") && !mimetype.equals("application/octet-stream"))
                     values.put(MediaStore.MediaColumns.MIME_TYPE, mimetype);
 
                 final Uri contentUri = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
