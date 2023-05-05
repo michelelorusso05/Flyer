@@ -12,11 +12,18 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 
 public class Host {
+    /**
+     * All known device types.
+     */
     public enum DeviceTypes {
         PHONE,
         TABLET,
         WINDOWS
     }
+
+    /**
+     * All known packet types (as version 1 of the Discovery Protocol).
+     */
     public enum PacketTypes {
         OFFER,
         FORGETME
@@ -75,11 +82,28 @@ public class Host {
         return this.ip.equals(host.getIp());
     }
 
+    /**
+     * Get the device's name. For versions before Android 7.1 (API 25), the Bluetooth name is returned.
+     * Otherwise, the Settings.Global.DEVICE_NAME is used.
+     * @param context The application context.
+     * @return The device's name.
+     */
     public static String getHostname(Context context) {
         return (Build.VERSION.SDK_INT < Build.VERSION_CODES.N_MR1) ?
             Settings.Secure.getString(context.getContentResolver(), "bluetooth_name") :
             Settings.Global.getString(context.getContentResolver(), Settings.Global.DEVICE_NAME);
     }
+
+    /**
+     * Get a list of NetworkInterfaces that are eligible for Discovery. <br/>
+     * This includes interfaces that:
+     * <ul>
+     *     <li>are connected to a private network.</li>
+     *     <li>are connected to a network that has a Broadcast address (if it doesn't, it's a mobile data connection)</li>
+     * </ul>
+     * @return A list of all found interfaces. It can be empty if none are found.
+     * @throws SocketException If something went wrong when iterating through interfaces.
+     */
     public static ArrayList<NetworkInterface> getActiveInterfaces() throws SocketException {
         ArrayList<NetworkInterface> interfaces = new ArrayList<>();
 

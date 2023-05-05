@@ -210,6 +210,14 @@ public class FileMappings {
         for (String type : types)
             mappings.put(type, icon);
     }
+
+    /**
+     * Retrieve the proper icon Drawable for a specific MimeType.
+     * @param context The application context.
+     * @param mime The MimeType to retrieve the icon of.
+     * @return The icon in form of a Drawable; if no icon is found for the given MimeType, the default icon
+     * (application/octet-stream) will be returned.
+     */
     public static Drawable getIconFromMimeType(Context context, String mime) {
         Integer found;
         // Specific search
@@ -225,13 +233,26 @@ public class FileMappings {
         }
         return AppCompatResources.getDrawable(context, found);
     }
+
+    /**
+     * Retrieve the proper icon Drawable for a specific file.
+     * @param context The application context.
+     * @param uri The URI of the file to retrieve the icon of.
+     * @return The icon in form of a Drawable; if no icon is found for the given MimeType, the default icon
+     * (application/octet-stream) will be returned.
+     */
     public static Drawable getIconFromUri(Context context, Uri uri) {
         String mime = context.getContentResolver().getType(uri);
 
         return getIconFromMimeType(context, mime);
     }
 
-
+    /**
+     * Get the filename from a given URI.
+     * @param context The application context.
+     * @param uri Any type of URI.
+     * @return The filename of the specified file.
+     */
     public static String getFilenameFromURI(@NonNull Context context, Uri uri) {
         Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
         cursor.moveToFirst();
@@ -240,6 +261,13 @@ public class FileMappings {
 
         return name;
     }
+
+    /**
+     * Get the filesize from a given URI.
+     * @param context The application context.
+     * @param uri Any type of URI.
+     * @return The size of the specified file.
+     */
     public static long getSizeFromURI(@NonNull Context context, Uri uri) {
         Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
         cursor.moveToFirst();

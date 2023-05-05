@@ -9,7 +9,15 @@ import java.net.InetAddress;
 
 public class PacketUtils {
     // Protocol versions
+    /**
+     * Discovery Protocol version. <br/>
+     * 1.0: Initial version.
+     */
     public static final byte DISCOVERY_PROTOCOL_VERSION = 0x01;
+    /**
+     * Flow Protocol version. <br/>
+     * 1.0: Initial version.
+     */
     public static final byte FLOW_PROTOCOL_VERSION = 0x01;
 
     private static final DeviceTypes[] cachedDeviceTypes = DeviceTypes.values();
@@ -24,6 +32,16 @@ public class PacketUtils {
         return cachedPacketTypes[x];
     }
 
+    /**
+     * Create the data for a new Discovery DatagramPacket.
+     * @param port The advertised TCP port.
+     * @param deviceType The device type.
+     * @param packetType The packet type.
+     * @param deviceName The device name.
+     * @return An array of bytes that contain all the values in their respective places. This array
+     * can be modified freely (for example, to update the port using PacketUtils#updatePort)
+     * @see PacketUtils#updatePort(byte[], int)
+     */
     public static byte[] encapsulate(
             int port,
             DeviceTypes deviceType,
@@ -47,10 +65,23 @@ public class PacketUtils {
 
         return send;
     }
+
+    /**
+     * Update the port in an already existing packet.
+     * @param packet The old packet.
+     * @param newPort The new port.
+     */
     public static void updatePort(byte[] packet, int newPort) {
         packet[1] = (byte) ((newPort >>> 8) & 255);
         packet[2] = (byte) (newPort & 255);
     }
+
+    /**
+     * Deencapsulates all informations about a host in a new Host object.
+     * @param datagramPacket The incoming DatagramPacket containing the Host's informations.
+     * @return The newly created Host object.
+     * @throws IllegalArgumentException If the incoming packet is malformed (i.e. is not of proper length or contains invalid values)
+     */
     public static Host deencapsulate(DatagramPacket datagramPacket) throws IllegalArgumentException {
         byte[] packet = datagramPacket.getData();
 
@@ -66,6 +97,13 @@ public class PacketUtils {
         return new Host(datagramPacket.getAddress(), name, port, deviceTypeFromInt(packet[3]), packetTypesFromInt(packet[4]));
     }
 
+    /**
+     * Check if two IP addresses are on the same subnet.
+     * @param addr1 First host address.
+     * @param addr2 Second host address.
+     * @param mask The shared mask to compare.
+     * @return true if the addresses are in the same network; false otherwise.
+     */
     public boolean sameNetwork(InetAddress addr1, InetAddress addr2, short mask) {
         if (!(addr1 instanceof Inet4Address) || !(addr2 instanceof Inet4Address)) return false;
 
@@ -84,8 +122,10 @@ public class PacketUtils {
     }
 
     public static String ellipsize(String str, int max) {
-        /*if (str.length() <= max) */return str;
-
-        //return str.substring(0, max).concat("…");
+        return str;
+        /*
+        if (str.length() <= max) return str;
+        return str.substring(0, max).concat("…");
+         */
     }
 }
