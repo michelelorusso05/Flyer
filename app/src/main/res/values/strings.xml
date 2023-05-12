@@ -37,4 +37,7 @@
     <string name="receiving_from">From %1$s</string>
     <string name="touch_to_open">Tap to open</string>
     <string name="debug_info">Debug info</string>
+    <string name="not_supported_error">Operation not supported</string>
+    <string name="update_warning">Update Flyer to receive this item.</string>
+    <string name="tap_to_copy">Tap to copy into clipboard</string>
 </resources>

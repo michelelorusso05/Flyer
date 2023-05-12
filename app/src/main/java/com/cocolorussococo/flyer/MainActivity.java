@@ -153,7 +153,7 @@ public class MainActivity extends AppCompatActivity {
 
             new MaterialAlertDialogBuilder(this)
                     .setTitle("Informazioni di debug")
-                    .setMessage("Build del " + DateFormat.getDateInstance().format(date) + "\n\nVersione protocollo Discovery: 1.0\nVersione protocollo Flow: 1.0")
+                    .setMessage("Build del " + DateFormat.getDateInstance().format(date) + "\n\nVersione protocollo Discovery: 1.0\nVersione protocollo Flow: 1.1")
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> dialog.dismiss())
                     .show();
             return true;

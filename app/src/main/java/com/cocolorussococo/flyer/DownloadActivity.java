@@ -3,6 +3,9 @@ package com.cocolorussococo.flyer;
 
 import android.Manifest;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
@@ -23,8 +26,8 @@ import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
-import com.cocolorussococo.flyer.Host.DeviceTypes;
-import com.cocolorussococo.flyer.Host.PacketTypes;
+import com.cocolorussococo.flyer.Host.DeviceType;
+import com.cocolorussococo.flyer.Host.PacketType;
 import com.google.android.material.snackbar.Snackbar;
 
 import java.io.IOException;
@@ -111,8 +114,8 @@ public class DownloadActivity extends AppCompatActivity {
             byte[] packet = PacketUtils.encapsulate(
                     currentPort.get(),
                     // Ignored
-                    DeviceTypes.PHONE,
-                    PacketTypes.FORGETME,
+                    DeviceType.PHONE,
+                    PacketType.FORGETME,
                     // Ignored
                     Host.getHostname(DownloadActivity.this)
             );
@@ -233,28 +236,48 @@ public class DownloadActivity extends AppCompatActivity {
                     WorkInfo.State state = workInfo.getState();
 
                     if (state == WorkInfo.State.SUCCEEDED) {
-                        operationPreview.setSucceeded(R.string.touch_to_open);
+                        PacketUtils.FlowType type = PacketUtils.flowTypeFromInt(data.getInt("transmissionType", -1));
 
-                        String savedFileURI = data.getString("fileURI");
-                        Uri uri = Uri.parse(savedFileURI);
+                        if (type == PacketUtils.FlowType.NOT_SUPPORTED) return;
 
-                        System.out.println(getContentResolver().getType(uri));
+                        if (type == PacketUtils.FlowType.SINGLE_FILE) {
+                            operationPreview.setSucceeded(R.string.touch_to_open);
 
-                        Intent intent = new Intent(Intent.ACTION_VIEW);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                        intent.setDataAndType(uri, mimeType);
+                            String savedFileURI = data.getString("fileURI");
+                            Uri uri = Uri.parse(savedFileURI);
 
-                        operationPreview.setOnClick(v -> {
-                            s.dismiss();
-                            try {
-                                startActivity(intent);
-                            } catch (ActivityNotFoundException e) {
-                                Snackbar.make(findViewById(R.id.coordinatorLayout), "Non ci sono app per questo tipo di contenuto", Snackbar.LENGTH_SHORT).show();
-                            }
-                        });
+                            System.out.println(getContentResolver().getType(uri));
+
+                            Intent intent = new Intent(Intent.ACTION_VIEW);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                            intent.setDataAndType(uri, mimeType);
+
+                            operationPreview.setOnClick(v -> {
+                                s.dismiss();
+                                try {
+                                    startActivity(intent);
+                                } catch (ActivityNotFoundException e) {
+                                    Snackbar.make(findViewById(R.id.coordinatorLayout), "Non ci sono app per questo tipo di contenuto", Snackbar.LENGTH_SHORT).show();
+                                }
+                            });
+                        }
+                        else if (type == PacketUtils.FlowType.TEXT) {
+                            String text = data.getString("filename");
+                            operationPreview.setSucceeded(R.string.tap_to_copy);
+
+                            operationPreview.setOnClick(v -> {
+                                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                                ClipData clip = ClipData.newPlainText(text, text);
+                                clipboard.setPrimaryClip(clip);
+                            });
+                        }
+
                     }
                     else if (state == WorkInfo.State.FAILED || state == WorkInfo.State.CANCELLED) {
-                        operationPreview.setFailed();
+                        if (data.getInt("unsupportedCommunication", -1) != -1)
+                            operationPreview.setUnsupported();
+                        else
+                            operationPreview.setFailed();
                     }
                 }
             });
@@ -311,8 +334,8 @@ public class DownloadActivity extends AppCompatActivity {
                     currentPort.get(),
                     ((getResources().getConfiguration().screenLayout
                             & Configuration.SCREENLAYOUT_SIZE_MASK)
-                            >= Configuration.SCREENLAYOUT_SIZE_LARGE) ? DeviceTypes.TABLET : DeviceTypes.PHONE,
-                    PacketTypes.OFFER,
+                            >= Configuration.SCREENLAYOUT_SIZE_LARGE) ? DeviceType.TABLET : DeviceType.PHONE,
+                    PacketType.OFFER,
                     Host.getHostname(DownloadActivity.this));
 
             beaconTimer = new Timer();

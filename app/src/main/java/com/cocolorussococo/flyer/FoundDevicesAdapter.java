@@ -25,7 +25,8 @@ public class FoundDevicesAdapter extends RecyclerView.Adapter<FoundDevicesAdapte
     private final static int[] DEVICE_TYPES = {
             R.drawable.outline_smartphone_24,
             R.drawable.outline_tablet_24,
-            R.drawable.baseline_windows_24
+            R.drawable.baseline_windows_24,
+            R.drawable.round_question_mark_24
     };
 
     public interface onDeviceSelectedCallback {

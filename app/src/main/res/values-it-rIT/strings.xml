@@ -38,4 +38,7 @@
     <string name="receiving_from">Da %1$s</string>
     <string name="touch_to_open">Tocca per aprire</string>
     <string name="debug_info">Info di debug</string>
+    <string name="not_supported_error">Operazione non supportata</string>
+    <string name="update_warning">Aggiorna Flyer per ricevere questo elemento.</string>
+    <string name="tap_to_copy">Tocca per copiare negli appunti</string>
 </resources>

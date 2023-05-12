@@ -52,6 +52,7 @@ public class FileDownloadWorker extends Worker {
     final long startTime;
     final Socket socket;
     final Data.Builder progressData;
+    PacketUtils.FlowType communicationType;
 
     @SuppressLint("MissingPermission")
     @Override
@@ -63,6 +64,9 @@ public class FileDownloadWorker extends Worker {
 
     @SuppressLint({"MissingPermission", "RestrictedApi"})
     private void sendNotification() {
+        // Do not send notifications for text transfer
+        if (communicationType == PacketUtils.FlowType.TEXT) return;
+
         Log.d("Notification", "Updated");
         builder.setWhen(startTime);
 
@@ -113,8 +117,7 @@ public class FileDownloadWorker extends Worker {
         socket = DownloadActivity.consumeSocket();
 
         progressData = new Data.Builder();
-
-        sendNotification();
+        // sendNotification();
     }
 
     @SuppressLint({"MissingPermission", "RestrictedApi"})
@@ -133,116 +136,137 @@ public class FileDownloadWorker extends Worker {
             byte typeOfContent = dataInputStream.readByte();
 
             if (version != PacketUtils.FLOW_PROTOCOL_VERSION) Log.w("Mismatching Flow version", "Shenanigans might happen");
-            if (typeOfContent != 0) Log.e("Unsupported content type", "Not implemented yet");
+
+            communicationType = PacketUtils.flowTypeFromInt(typeOfContent);
+
+            if (communicationType.equals(PacketUtils.FlowType.NOT_SUPPORTED)) {
+                Log.e("Unsupported content type", "Not implemented yet");
+                socket.sendUrgentData(0x42);
+                socket.close();
+                return Result.failure(progressData.putInt("unsupportedCommunication", typeOfContent).build());
+            }
 
             String transmitterName = readStringFromStream(dataInputStream);
             String filename = readStringFromStream(dataInputStream);
-            String mimeType = readStringFromStream(dataInputStream);
+
+            System.out.println(filename);
 
             progressData
-                    .put("transmitterName", transmitterName)
-                    .put("filename", filename)
-                    .put("mimeType", mimeType);
+                    .putString("transmitterName", transmitterName)
+                    .putInt("transmissionType", typeOfContent);
 
-            setProgressAsync(progressData.build());
 
-            PendingIntent cancelIntent = WorkManager.getInstance(ctx).createCancelPendingIntent(getId());
-            builder
-                    .setContentTitle(ellipsize(filename, 25))
-                    .addAction(0, ctx.getString(R.string.transfer_cancel), cancelIntent);
+            if (communicationType.equals(PacketUtils.FlowType.SINGLE_FILE)) {
+                String mimeType = readStringFromStream(dataInputStream);
 
-            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.M)
-                builder.setSubText(ctx.getString(R.string.receiving_from, ellipsize(transmitterName, 20)));
-
-            sendNotification();
-
-            Pair<OutputStream, Uri> pair = openOutputStreamForDownloadedFile(ctx, filename, mimeType);
-            toSave = pair.second;
-            if (pair.first == null) throw new RuntimeException("Something went wrong when opening output file.");
-            OutputStream fileOutputStream = pair.first;
-
-            long size = dataInputStream.readLong();
-            long total = size;
-
-            byte[] buffer = new byte[1024 * 1024];
-            int prevPercentage = 0;
-            long speedMillis = System.currentTimeMillis();
-            long elapsedMillis = System.currentTimeMillis();
-            long bytesConsumedInTime = 0;
-            boolean shouldUpdateNotification = false;
-
-            final DecimalFormat decimalFormat = new DecimalFormat("0.00");
-            String speed = "0 MB/s";
-
-            while (size > 0) {
-                bytes = dataInputStream.read(buffer, 0, (int) Math.min(buffer.length, size));
-                if (bytes == -1) throw new InterruptedException("Socket has been closed by remote host.");
-
-                bytesConsumedInTime += bytes;
-
-                fileOutputStream.write(buffer, 0, bytes);
-                size -= bytes;
-
-                // Progress logic check
-                final long progress = total - size;
-                final int percentage = (int) ((float) progress * 100f / total);
-                // Do not issue a notification update if the percentage hasn't changed.
-                if (percentage != prevPercentage) shouldUpdateNotification = true;
-                prevPercentage = percentage;
-
-                // Speed update (at least once a second) check
-                long curTime = System.currentTimeMillis();
-                if (curTime - speedMillis >= 1000) {
-                    shouldUpdateNotification = true;
-                    speedMillis = curTime;
-
-                    speed = decimalFormat.format((float) bytesConsumedInTime / 1000000f).concat(" MB/s");
-                    bytesConsumedInTime = 0;
-                }
-
-                // Do not issue a notification update if we are exceeding the rate limit (Android
-                // allows for 10 updates/sec, but we further reduce it down to 2 updates/sec).
-                if (System.currentTimeMillis() - elapsedMillis < 500) continue;
-                elapsedMillis = System.currentTimeMillis();
-
-                progressData.putInt("percentage", percentage);
+                progressData
+                        .put("filename", filename)
+                        .put("mimeType", mimeType);
 
                 setProgressAsync(progressData.build());
 
-                if (shouldUpdateNotification) {
-                    builder
-                            .setContentText(percentage + "% · " + speed)
-                            .setProgress(100, percentage, false);
+                PendingIntent cancelIntent = WorkManager.getInstance(ctx).createCancelPendingIntent(getId());
+                builder
+                        .setContentTitle(ellipsize(filename, 25))
+                        .addAction(0, ctx.getString(R.string.transfer_cancel), cancelIntent);
 
-                    sendNotification();
-                    shouldUpdateNotification = false;
+                if (Build.VERSION.SDK_INT > Build.VERSION_CODES.M)
+                    builder.setSubText(ctx.getString(R.string.receiving_from, ellipsize(transmitterName, 20)));
+
+                sendNotification();
+
+                Pair<OutputStream, Uri> pair = openOutputStreamForDownloadedFile(ctx, filename, mimeType);
+                toSave = pair.second;
+                if (pair.first == null) throw new RuntimeException("Something went wrong when opening output file.");
+                OutputStream fileOutputStream = pair.first;
+
+                long size = dataInputStream.readLong();
+                long total = size;
+
+                byte[] buffer = new byte[1024 * 1024];
+                int prevPercentage = 0;
+                long speedMillis = System.currentTimeMillis();
+                long elapsedMillis = System.currentTimeMillis();
+                long bytesConsumedInTime = 0;
+                boolean shouldUpdateNotification = false;
+
+                final DecimalFormat decimalFormat = new DecimalFormat("0.00");
+                String speed = "0 MB/s";
+
+                while (size > 0) {
+                    bytes = dataInputStream.read(buffer, 0, (int) Math.min(buffer.length, size));
+                    if (bytes == -1) throw new InterruptedException("Socket has been closed by remote host.");
+
+                    bytesConsumedInTime += bytes;
+
+                    fileOutputStream.write(buffer, 0, bytes);
+                    size -= bytes;
+
+                    // Progress logic check
+                    final long progress = total - size;
+                    final int percentage = (int) ((float) progress * 100f / total);
+                    // Do not issue a notification update if the percentage hasn't changed.
+                    if (percentage != prevPercentage) shouldUpdateNotification = true;
+                    prevPercentage = percentage;
+
+                    // Speed update (at least once a second) check
+                    long curTime = System.currentTimeMillis();
+                    if (curTime - speedMillis >= 1000) {
+                        shouldUpdateNotification = true;
+                        speedMillis = curTime;
+
+                        speed = decimalFormat.format((float) bytesConsumedInTime / 1000000f).concat(" MB/s");
+                        bytesConsumedInTime = 0;
+                    }
+
+                    // Do not issue a notification update if we are exceeding the rate limit (Android
+                    // allows for 10 updates/sec, but we further reduce it down to 2 updates/sec).
+                    if (System.currentTimeMillis() - elapsedMillis < 500) continue;
+                    elapsedMillis = System.currentTimeMillis();
+
+                    progressData.putInt("percentage", percentage);
+
+                    setProgressAsync(progressData.build());
+
+                    if (shouldUpdateNotification) {
+                        builder
+                                .setContentText(percentage + "% · " + speed)
+                                .setProgress(100, percentage, false);
+
+                        sendNotification();
+                        shouldUpdateNotification = false;
+                    }
                 }
+
+                dataInputStream.close();
+                fileOutputStream.close();
+
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                intent.setDataAndType(toSave, mimeType);
+
+                PendingIntent pendingIntent = PendingIntent.getActivity(ctx, id, intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+                progressData.putString("fileURI", toSave.toString());
+
+                builder
+                        .setOngoing(false)
+                        .setProgress(0,0, false)
+                        .setContentText(ctx.getText(R.string.download_complete))
+                        .setAutoCancel(true)
+                        .clearActions()
+                        .setContentIntent(pendingIntent);
+
+                sendNotification();
+
+                if (hasNotificationPermissions)
+                    notificationManager.notify(id + 1, builder.build());
+            }
+            if (communicationType.equals(PacketUtils.FlowType.TEXT)) {
+                progressData.putString("filename", filename);
             }
 
-            dataInputStream.close();
-            fileOutputStream.close();
-
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            intent.setDataAndType(toSave, mimeType);
-
-            PendingIntent pendingIntent = PendingIntent.getActivity(ctx, id, intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-            progressData.putString("fileURI", toSave.toString());
-
-            builder
-                    .setOngoing(false)
-                    .setProgress(0,0, false)
-                    .setContentText(ctx.getText(R.string.download_complete))
-                    .setAutoCancel(true)
-                    .clearActions()
-                    .setContentIntent(pendingIntent);
-
-            sendNotification();
-
-            if (hasNotificationPermissions)
-                notificationManager.notify(id + 1, builder.build());
         } catch (InterruptedException | SocketException e) {
             e.printStackTrace();
             builder
@@ -300,7 +324,7 @@ public class FileDownloadWorker extends Worker {
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
     private static String readStringFromStream(DataInputStream stream) throws IOException {
-        int l = stream.readByte();
+        int l = stream.readInt();
         byte[] buf = new byte[l];
         stream.read(buf);
 

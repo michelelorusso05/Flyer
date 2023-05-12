@@ -46,6 +46,7 @@ public class FileUploadWorker extends Worker {
     final String filename;
     Socket socket;
     final Data.Builder progressData;
+    final PacketUtils.FlowType communicationType;
 
     @Override
     public void onStopped() {
@@ -57,6 +58,8 @@ public class FileUploadWorker extends Worker {
 
     @SuppressLint("MissingPermission")
     private void sendNotification() {
+        if (communicationType == PacketUtils.FlowType.TEXT) return;
+
         builder.setWhen(startTime);
 
         if (hasExceededQuota && hasNotificationPermissions)
@@ -91,7 +94,14 @@ public class FileUploadWorker extends Worker {
                 ActivityCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
 
 
-        filename = FileMappings.getFilenameFromURI(ctx, file);
+        if (file.getScheme().equals("data")) {
+            filename = file.toString().substring(16);
+            communicationType = PacketUtils.FlowType.TEXT;
+        }
+        else {
+            filename = FileMappings.getFilenameFromURI(ctx, file);
+            communicationType = PacketUtils.FlowType.SINGLE_FILE;
+        }
 
         notificationManager = NotificationManagerCompat.from(ctx);
 
@@ -127,10 +137,9 @@ public class FileUploadWorker extends Worker {
             socket = new Socket(target, port);
             // Reliability and throughput
             socket.setTrafficClass(0x04 | 0x08);
-            InputStream fileStream = ctx.getContentResolver().openInputStream(file);
+            socket.setOOBInline(true);
 
             int bytes;
-            socket.setSoTimeout(5000);
 
             socket.setSendBufferSize(1024 * 1024);
             DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
@@ -142,93 +151,106 @@ public class FileUploadWorker extends Worker {
 
             // Write version
             dataOutputStream.writeByte(PacketUtils.FLOW_PROTOCOL_VERSION);
-            // Write data type (0 for normal content)
-            dataOutputStream.writeByte(0x00);
+            // Write data type
+            dataOutputStream.writeByte(communicationType.ordinal());
 
             // Write hostname
             writeStringToStream(dataOutputStream, Host.getHostname(ctx));
             // Write filename
+            System.out.println(filename);
             writeStringToStream(dataOutputStream, filename);
-            // Write mimetype
-            writeStringToStream(dataOutputStream, ctx.getContentResolver().getType(file));
 
-            progressData
-                    .putBoolean("started", true);
-
-            setProgressAsync(progressData.build());
-
-            final long total = FileMappings.getSizeFromURI(ctx, file);
-            long written = 0;
-
-            // Write content size
-            dataOutputStream.writeLong(total);
-
-            byte[] buffer = new byte[1024 * 1024];
-            int prevPercentage = 0;
-            long speedMillis = System.currentTimeMillis();
-            long elapsedMillis = System.currentTimeMillis();
-            long bytesConsumedInTime = 0;
-            boolean shouldUpdateNotification = false;
-
-            final DecimalFormat decimalFormat = new DecimalFormat("0.00");
-            String speed = "0 MB/s";
-
-            // Sending data on a socket doesn't implement a timeout, so we create one from scratch
-            Watchdog watchdog = new Watchdog(5000, () -> {
+            new Thread(() -> {
                 try {
+                    int msg = socket.getInputStream().read();
                     socket.close();
                 } catch (IOException ignored) {}
-            });
+            }).start();
 
-            while (true) {
-                bytes = fileStream.read(buffer);
-                if (bytes == -1) break;
+            if (communicationType.equals(PacketUtils.FlowType.SINGLE_FILE)) {
+                // Write mimetype
+                writeStringToStream(dataOutputStream, ctx.getContentResolver().getType(file));
 
-                bytesConsumedInTime += bytes;
+                InputStream fileStream = ctx.getContentResolver().openInputStream(file);
 
-                dataOutputStream.write(buffer, 0, bytes);
-                written += bytes;
-
-                watchdog.resetTimer();
-
-                final int percentage = (int) ((float) written * 100f / total);
-
-                // Do not issue a notification update if the percentage hasn't changed.
-                if (percentage != prevPercentage) shouldUpdateNotification = true;
-                prevPercentage = percentage;
-
-                // Speed update (at least once a second) check
-                long curTime = System.currentTimeMillis();
-                if (curTime - speedMillis >= 1000) {
-                    shouldUpdateNotification = true;
-                    speedMillis = curTime;
-
-                    speed = decimalFormat.format((float) bytesConsumedInTime / 1000000f).concat(" MB/s");
-                    bytesConsumedInTime = 0;
-                }
-
-                // Do not issue a notification update if we are exceeding the rate limit (Android
-                // allows for 10 updates/sec, but we further reduce it down to 2 updates/sec).
-                if (System.currentTimeMillis() - elapsedMillis < 500) continue;
-                elapsedMillis = System.currentTimeMillis();
-
-                progressData.putInt("percentage", percentage);
+                progressData
+                        .putBoolean("started", true);
 
                 setProgressAsync(progressData.build());
 
-                if (shouldUpdateNotification) {
-                    builder
-                            .setContentText(percentage + "% · " + speed)
-                            .setProgress(100, percentage, false);
+                final long total = FileMappings.getSizeFromURI(ctx, file);
+                long written = 0;
 
-                    sendNotification();
-                    shouldUpdateNotification = false;
+                // Write content size
+                dataOutputStream.writeLong(total);
+
+                byte[] buffer = new byte[1024 * 1024];
+                int prevPercentage = 0;
+                long speedMillis = System.currentTimeMillis();
+                long elapsedMillis = System.currentTimeMillis();
+                long bytesConsumedInTime = 0;
+                boolean shouldUpdateNotification = false;
+
+                final DecimalFormat decimalFormat = new DecimalFormat("0.00");
+                String speed = "0 MB/s";
+
+                // Sending data on a socket doesn't implement a timeout, so we create one from scratch
+                Watchdog watchdog = new Watchdog(5000, () -> {
+                    try {
+                        socket.close();
+                    } catch (IOException ignored) {}
+                });
+
+                while (true) {
+                    bytes = fileStream.read(buffer);
+                    if (bytes == -1) break;
+
+                    bytesConsumedInTime += bytes;
+
+                    dataOutputStream.write(buffer, 0, bytes);
+                    written += bytes;
+
+                    watchdog.resetTimer();
+
+                    final int percentage = (int) ((float) written * 100f / total);
+
+                    // Do not issue a notification update if the percentage hasn't changed.
+                    if (percentage != prevPercentage) shouldUpdateNotification = true;
+                    prevPercentage = percentage;
+
+                    // Speed update (at least once a second) check
+                    long curTime = System.currentTimeMillis();
+                    if (curTime - speedMillis >= 1000) {
+                        shouldUpdateNotification = true;
+                        speedMillis = curTime;
+
+                        speed = decimalFormat.format((float) bytesConsumedInTime / 1000000f).concat(" MB/s");
+                        bytesConsumedInTime = 0;
+                    }
+
+                    // Do not issue a notification update if we are exceeding the rate limit (Android
+                    // allows for 10 updates/sec, but we further reduce it down to 2 updates/sec).
+                    if (System.currentTimeMillis() - elapsedMillis < 500) continue;
+                    elapsedMillis = System.currentTimeMillis();
+
+                    progressData.putInt("percentage", percentage);
+
+                    setProgressAsync(progressData.build());
+
+                    if (shouldUpdateNotification) {
+                        builder
+                                .setContentText(percentage + "% · " + speed)
+                                .setProgress(100, percentage, false);
+
+                        sendNotification();
+                        shouldUpdateNotification = false;
+                    }
                 }
-            }
-            fileStream.close();
-            dataOutputStream.close();
+                fileStream.close();
+                dataOutputStream.close();
 
-            watchdog.done();
+                watchdog.done();
+            }
 
             builder
                     .setProgress(0, 0, false)
@@ -236,7 +258,7 @@ public class FileUploadWorker extends Worker {
                     .setContentText(ctx.getText(R.string.upload_complete))
                     .clearActions();
 
-            if (hasNotificationPermissions)
+            if (hasNotificationPermissions && communicationType != PacketUtils.FlowType.TEXT)
                 notificationManager.notify(id + 1, builder.build());
 
             progressData.putInt("percentage", 100);
@@ -275,7 +297,7 @@ public class FileUploadWorker extends Worker {
     private static void writeStringToStream(DataOutputStream stream, String toWrite) throws IOException {
         byte[] buf = toWrite.getBytes();
 
-        stream.writeByte(buf.length);
+        stream.writeInt(buf.length);
         stream.write(buf);
     }
 

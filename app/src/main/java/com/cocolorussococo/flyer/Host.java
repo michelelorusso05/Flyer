@@ -15,27 +15,29 @@ public class Host {
     /**
      * All known device types.
      */
-    public enum DeviceTypes {
+    public enum DeviceType {
         PHONE,
         TABLET,
-        WINDOWS
+        WINDOWS,
+        UNKNOWN
     }
 
     /**
      * All known packet types (as version 1 of the Discovery Protocol).
      */
-    public enum PacketTypes {
+    public enum PacketType {
         OFFER,
-        FORGETME
+        FORGETME,
+        UNIMPLEMENTED
     }
     final private InetAddress ip;
     final private String name;
-    final private PacketTypes packetType;
+    final private PacketType packetType;
     private int port;
-    final private DeviceTypes deviceType;
+    final private DeviceType deviceType;
     private long lastUpdated;
 
-    public Host(InetAddress ip, String name, int port, DeviceTypes type, PacketTypes packetType) {
+    public Host(InetAddress ip, String name, int port, DeviceType type, PacketType packetType) {
         this.ip = ip;
         this.name = name;
         this.port = port;
@@ -56,11 +58,11 @@ public class Host {
         return port;
     }
 
-    public DeviceTypes getDeviceType() {
+    public DeviceType getDeviceType() {
         return deviceType;
     }
 
-    public PacketTypes getPacketType() {
+    public PacketType getPacketType() {
         return packetType;
     }
     public void updatePort(int newPort) {

@@ -1,7 +1,7 @@
 package com.cocolorussococo.flyer;
 
-import com.cocolorussococo.flyer.Host.DeviceTypes;
-import com.cocolorussococo.flyer.Host.PacketTypes;
+import com.cocolorussococo.flyer.Host.DeviceType;
+import com.cocolorussococo.flyer.Host.PacketType;
 
 import java.net.DatagramPacket;
 import java.net.Inet4Address;
@@ -16,19 +16,34 @@ public class PacketUtils {
     public static final byte DISCOVERY_PROTOCOL_VERSION = 0x01;
     /**
      * Flow Protocol version. <br/>
+     * 1.1: Added support for text transfer. Now string lengths are sent as ints and not bytes.
+     * <br />
      * 1.0: Initial version.
      */
-    public static final byte FLOW_PROTOCOL_VERSION = 0x01;
+    public static final byte FLOW_PROTOCOL_VERSION = 0x02;
+    public enum FlowType {
+        SINGLE_FILE,
+        TEXT,
+        MULTI_FILE,
+        NOT_SUPPORTED
+    }
+    private static final FlowType[] cachedFlowTypes = FlowType.values();
+    public static FlowType flowTypeFromInt(int x) {
+        if (x < 0 || x >= cachedFlowTypes.length - 1) return FlowType.NOT_SUPPORTED;
+        return cachedFlowTypes[x];
+    }
 
-    private static final DeviceTypes[] cachedDeviceTypes = DeviceTypes.values();
+    private static final DeviceType[] cachedDeviceTypes = DeviceType.values();
 
-    public static DeviceTypes deviceTypeFromInt(int x) {
+    public static DeviceType deviceTypeFromInt(int x) {
+        if (x < 0 || x >= cachedDeviceTypes.length - 1) return DeviceType.UNKNOWN;
         return cachedDeviceTypes[x];
     }
 
-    private static final PacketTypes[] cachedPacketTypes = PacketTypes.values();
+    private static final PacketType[] cachedPacketTypes = PacketType.values();
 
-    public static PacketTypes packetTypesFromInt(int x) {
+    public static PacketType packetTypesFromInt(int x) {
+        if (x < 0 || x >= cachedPacketTypes.length - 1) return PacketType.UNIMPLEMENTED;
         return cachedPacketTypes[x];
     }
 
@@ -44,8 +59,8 @@ public class PacketUtils {
      */
     public static byte[] encapsulate(
             int port,
-            DeviceTypes deviceType,
-            PacketTypes packetType,
+            DeviceType deviceType,
+            PacketType packetType,
             String deviceName
     ) {
         byte[] send = new byte[128];
@@ -90,11 +105,12 @@ public class PacketUtils {
         String name = new String(packet, 8, 120);
         int port = Byte.toUnsignedInt(packet[2]) + (Byte.toUnsignedInt(packet[1]) << 8);
 
-        if (packet[3] < 0 || packet[3] > 2 || packet[4] < 0 || packet[4] > 1)
-            throw new IllegalArgumentException("Invalid values for type fields.");
+        DeviceType deviceType = deviceTypeFromInt(packet[3]);
+        PacketType packetType = packetTypesFromInt(packet[4]);
 
+        if (packetType == PacketType.UNIMPLEMENTED) throw new IllegalArgumentException("Packet type is invalid or unsupported in this version.");
 
-        return new Host(datagramPacket.getAddress(), name, port, deviceTypeFromInt(packet[3]), packetTypesFromInt(packet[4]));
+        return new Host(datagramPacket.getAddress(), name, port, deviceType, packetType);
     }
 
     /**

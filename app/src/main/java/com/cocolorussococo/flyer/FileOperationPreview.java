@@ -9,6 +9,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.StringRes;
+import androidx.appcompat.content.res.AppCompatResources;
 
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.android.material.snackbar.Snackbar;
@@ -66,7 +67,6 @@ public class FileOperationPreview {
 
         isSet = true;
 
-        filenameView.setText(_filename);
         switch (mode) {
             case SENDER:
                 statusView.setText(context.getString(R.string.sending_to, _transmitter));
@@ -75,7 +75,12 @@ public class FileOperationPreview {
                 statusView.setText(context.getString(R.string.receiving_from, _transmitter));
                 break;
         }
-        fileIcon.setImageDrawable(FileMappings.getIconFromMimeType(context, _mimetype));
+
+        filenameView.setText(_filename);
+        if (_mimetype == null)
+            fileIcon.setImageDrawable(AppCompatResources.getDrawable(context, R.drawable.round_text_fields_24));
+        else
+            fileIcon.setImageDrawable(FileMappings.getIconFromMimeType(context, _mimetype));
     }
     public boolean getSet() {
         return isSet;
@@ -109,6 +114,12 @@ public class FileOperationPreview {
         iconView.setImageResource(R.drawable.round_error_24);
         iconView.setColorFilter(0xFFC92647);
         statusView.setText(R.string.transfer_cancelled);
+    }
+    public void setUnsupported() {
+        setFailed();
+
+        filenameView.setText(R.string.not_supported_error);
+        statusView.setText(R.string.update_warning);
     }
 
     public void setOnClick(View.OnClickListener onClick) {

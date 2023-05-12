@@ -8,12 +8,12 @@ import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.lifecycle.LiveData;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -86,9 +86,11 @@ public class UploadActivity extends AppCompatActivity {
 
         // Get text from share intent (not supported yet)
         Uri shareIntentUri = getIntent().getParcelableExtra(Intent.EXTRA_STREAM);
-        if (getIntent().getStringExtra(Intent.EXTRA_TEXT) != null && shareIntentUri == null) {
-            Toast.makeText(this, "Flyer non permette l'invio di testo semplice al momento.", Toast.LENGTH_SHORT).show();
-            finish();
+        String extraString = getIntent().getStringExtra(Intent.EXTRA_TEXT);
+        if (extraString != null && shareIntentUri == null) {
+            // Cap string length to 10000 characters
+            selectedUri = Uri.parse("data:text/plain," + extraString.substring(0, Math.min(extraString.length(), 10000)));
+            postReceiveText();
             return;
         }
 
@@ -184,7 +186,7 @@ public class UploadActivity extends AppCompatActivity {
                 udpSocket.receive(received);
                 Host host = PacketUtils.deencapsulate(received);
 
-                if (host.getPacketType() == Host.PacketTypes.FORGETME) {
+                if (host.getPacketType() == Host.PacketType.FORGETME) {
                     runOnUiThread(() -> adapter.forgetDevice(host));
                     continue;
                 }
@@ -211,6 +213,12 @@ public class UploadActivity extends AppCompatActivity {
                 /*+ " " + getContentResolver().getType(selectedUri)*/);
         selectedFile.setCompoundDrawablesRelativeWithIntrinsicBounds(FileMappings.getIconFromUri(UploadActivity.this, selectedUri), null, null, null);
     }
+    private void postReceiveText() {
+        open = false;
+
+        selectedFile.setText(selectedUri.toString().substring(16));
+        selectedFile.setCompoundDrawablesRelativeWithIntrinsicBounds(AppCompatResources.getDrawable(this, R.drawable.round_text_fields_24), null, null, null);
+    }
 
     public void connect(@NonNull Host host) {
         WorkManager wm = WorkManager.getInstance(UploadActivity.this);
@@ -221,7 +229,7 @@ public class UploadActivity extends AppCompatActivity {
         workerData.putString("hostname", host.getName());
         workerData.putString("file", selectedUri.toString());
 
-        String uniqueWorkID = selectedUri.toString().concat(host.getIp().toString());
+        String uniqueWorkID = String.valueOf(selectedUri.toString().concat(host.getIp().toString()).hashCode());
 
         UUID uuid = UUID.randomUUID();
         snackbarDispatcher.enqueue(uuid);
