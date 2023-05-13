@@ -157,7 +157,6 @@ public class FileUploadWorker extends Worker {
             // Write hostname
             writeStringToStream(dataOutputStream, Host.getHostname(ctx));
             // Write filename
-            System.out.println(filename);
             writeStringToStream(dataOutputStream, filename);
 
             new Thread(() -> {

@@ -88,8 +88,8 @@ public class UploadActivity extends AppCompatActivity {
         Uri shareIntentUri = getIntent().getParcelableExtra(Intent.EXTRA_STREAM);
         String extraString = getIntent().getStringExtra(Intent.EXTRA_TEXT);
         if (extraString != null && shareIntentUri == null) {
-            // Cap string length to 10000 characters
-            selectedUri = Uri.parse("data:text/plain," + extraString.substring(0, Math.min(extraString.length(), 10000)));
+            // Cap string length to 5000 characters
+            selectedUri = Uri.parse("data:text/plain," + extraString.substring(0, Math.min(extraString.length(), 5000)));
             postReceiveText();
             return;
         }

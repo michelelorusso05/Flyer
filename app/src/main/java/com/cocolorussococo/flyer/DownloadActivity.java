@@ -246,8 +246,6 @@ public class DownloadActivity extends AppCompatActivity {
                             String savedFileURI = data.getString("fileURI");
                             Uri uri = Uri.parse(savedFileURI);
 
-                            System.out.println(getContentResolver().getType(uri));
-
                             Intent intent = new Intent(Intent.ACTION_VIEW);
                             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                             intent.setDataAndType(uri, mimeType);

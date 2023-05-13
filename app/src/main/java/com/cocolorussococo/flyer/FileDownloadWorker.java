@@ -149,8 +149,6 @@ public class FileDownloadWorker extends Worker {
             String transmitterName = readStringFromStream(dataInputStream);
             String filename = readStringFromStream(dataInputStream);
 
-            System.out.println(filename);
-
             progressData
                     .putString("transmitterName", transmitterName)
                     .putInt("transmissionType", typeOfContent);
